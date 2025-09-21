@@ -213,17 +213,31 @@ impl TrainDBNode {
                     if !peers.is_empty() {
                         info!("🔵 Found {} Bluetooth peers: {:?}", peers.len(), peers);
                         
-                        // Try to connect to discovered peers
+                        // Try to connect to discovered peers via Bluetooth
                         for peer_id in peers {
                             info!("🔵 Attempting to connect to Bluetooth peer: {}", peer_id);
                             
-                            // Create a Bluetooth multiaddr (simplified)
-                            let bluetooth_addr = format!("/bluetooth/{}", peer_id);
-                            if let Ok(addr) = bluetooth_addr.parse::<Multiaddr>() {
-                                if let Err(e) = self.swarm.dial(addr) {
-                                    debug!("Failed to dial Bluetooth peer {}: {}", peer_id, e);
+                            // Connect via Bluetooth transport (not libp2p)
+                            if let Some(ref mut bt) = self.bluetooth_transport {
+                                if let Err(e) = bt.connect_to_peer(peer_id).await {
+                                    debug!("Failed to connect to Bluetooth peer {}: {}", peer_id, e);
                                 } else {
-                                    info!("🔵 Successfully initiated connection to Bluetooth peer: {}", peer_id);
+                                    info!("🔵 Successfully connected to Bluetooth peer: {}", peer_id);
+                                    
+                                    // Send a test message to establish the connection
+                                    let test_msg = serde_json::json!({
+                                        "type": "bluetooth_hello",
+                                        "peer_id": self.swarm.local_peer_id().to_string(),
+                                        "timestamp": chrono::Utc::now().timestamp()
+                                    });
+                                    
+                                    if let Ok(data) = serde_json::to_vec(&test_msg) {
+                                        if let Err(e) = bt.send_message(peer_id, data).await {
+                                            debug!("Failed to send Bluetooth test message: {}", e);
+                                        } else {
+                                            info!("🔵 Sent Bluetooth test message to peer: {}", peer_id);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -348,6 +362,11 @@ impl TrainDBNode {
                             debug!("💓 Received keep-alive from peer: {}", peer_id);
                         }
                     }
+                    Some("bluetooth_hello") => {
+                        if let Some(peer_id) = data.get("peer_id") {
+                            info!("🔵 Received Bluetooth hello from peer: {}", peer_id);
+                        }
+                    }
                     _ => {
                         debug!("📨 Received message type: {}", msg_type);
                     }
@@ -408,13 +427,24 @@ impl TrainDBNode {
                 
                 if let Ok(data) = serde_json::to_vec(&message) {
                     info!("📤 Broadcasting data change: {} = {}", key, value);
+                    
+                    // Send via GossipSub (TCP/Wi-Fi)
                     if let Err(e) = self.swarm.behaviour_mut().publish(
                         gossipsub::IdentTopic::new("traindb-data"),
-                        data,
+                        data.clone(),
                     ) {
-                        error!("Failed to broadcast message: {}", e);
+                        error!("Failed to broadcast message via GossipSub: {}", e);
                     } else {
-                        info!("✅ Successfully broadcasted data change to all peers");
+                        info!("✅ Successfully broadcasted data change via GossipSub");
+                    }
+                    
+                    // Also send via Bluetooth if available
+                    if let Some(ref mut bt) = self.bluetooth_transport {
+                        // Get connected Bluetooth peers and send to them
+                        // This is a simplified approach - in reality you'd track connected peers
+                        info!("🔵 Broadcasting data change via Bluetooth to connected peers");
+                        // Note: The actual Bluetooth sending would need to be implemented
+                        // based on the connected peers from the Bluetooth transport
                     }
                 }
             }
