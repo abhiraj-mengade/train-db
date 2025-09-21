@@ -57,6 +57,7 @@ tempfile = "3.0"
 
 # HTTP API
 warp = "0.3"
+tokio-stream = "0.1"
 
 [features]
 default = []

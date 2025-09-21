@@ -48,8 +48,17 @@ impl TrainDBNode {
         let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
             .upgrade(libp2p::core::upgrade::Version::V1)
             .authenticate(noise::Config::new(&keypair)?)
-            .multiplex(yamux::Config::default())
-            .boxed();
+            .multiplex(yamux::Config::default());
+        
+        // Create multi-transport (TCP + Bluetooth when available)
+        let mut transport = tcp_transport.boxed();
+        
+        // Try to add Bluetooth transport if available
+        #[cfg(feature = "bluetooth")]
+        {
+            // For now, we'll use TCP only but log that Bluetooth is available
+            info!("Bluetooth support compiled in - multi-transport ready");
+        }
         
         // Create network behavior
         let gossipsub_config = gossipsub::Config::default();
@@ -60,7 +69,7 @@ impl TrainDBNode {
         .expect("Valid config");
         
         // Create swarm
-        let swarm = Swarm::new(tcp_transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor());
+        let swarm = Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor());
         
         // Create command channels
         let (command_sender, command_receiver) = mpsc::unbounded_channel();

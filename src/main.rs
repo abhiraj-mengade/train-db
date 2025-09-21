@@ -1,6 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::{info, error, warn};
 use tracing_subscriber;
 use libp2p::Multiaddr;
@@ -11,11 +13,13 @@ mod storage;
 mod bluetooth;
 mod simple_node;
 mod mesh_node;
+mod dashboard;
 
 use network::TrainDBNode;
 use storage::{RocksDBStorage, Storage};
 // use cli::InteractiveCLI;
 use simple_node::SimpleTrainDBNode;
+use dashboard::Dashboard;
 
 #[derive(Parser)]
 #[command(name = "train-db")]
@@ -80,6 +84,12 @@ enum Commands {
         #[arg(short, long, default_value = "30")]
         duration: u64,
     },
+    /// Start web dashboard
+    Dashboard {
+        /// Port for the dashboard web server
+        #[arg(short, long, default_value = "3000")]
+        port: u16,
+    },
 }
 
 #[tokio::main]
@@ -124,6 +134,9 @@ async fn main() -> Result<()> {
         }
         Commands::MeshDemo { duration } => {
             run_mesh_demo(cli.db_path, duration).await?;
+        }
+        Commands::Dashboard { port } => {
+            start_dashboard(cli.db_path, port).await?;
         }
     }
     
@@ -314,6 +327,36 @@ async fn run_mesh_demo(_db_path: PathBuf, duration: u64) -> Result<()> {
         info!("  cargo build --features bluetooth");
         info!("  cargo run --features bluetooth mesh-demo");
     }
+    
+    Ok(())
+}
+
+async fn start_dashboard(db_path: PathBuf, port: u16) -> Result<()> {
+    info!("Starting Train-DB Dashboard on port {}", port);
+    
+    let storage = RocksDBStorage::new(&db_path)?;
+    let storage_arc = Arc::new(Mutex::new(Box::new(storage) as Box<dyn Storage>));
+    
+    // Create dashboard
+    let dashboard = Arc::new(Dashboard::new(storage_arc));
+    
+    // Generate a mock peer ID and listen addresses for demo
+    let peer_id = "12D3KooWDemoPeerID123456789".to_string();
+    let listen_addresses = vec![
+        format!("/ip4/127.0.0.1/tcp/{}", port),
+        format!("/ip4/0.0.0.0/tcp/{}", port),
+    ];
+    
+    // Create routes
+    let routes = dashboard.create_routes(peer_id, listen_addresses);
+    
+    // Start the server
+    info!("🌐 Dashboard available at: http://localhost:{}", port);
+    info!("📊 Monitor your Train-DB node in real-time!");
+    
+    warp::serve(routes)
+        .run(([0, 0, 0, 0], port))
+        .await;
     
     Ok(())
 }

@@ -1,7 +1,3 @@
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on build directory
 warning: unused imports: `error` and `warn`
  --> src/main.rs:6:21
   |
@@ -273,16 +269,9 @@ warning: methods `increment_messages_sent`, `increment_messages_received`, and `
    |            ^^^^^^^^^^^^
 
 warning: `train-db` (bin "train-db") generated 25 warnings (run `cargo fix --bin "train-db"` to apply 5 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s
-     Running `target/debug/train-db --db-path ./demo-data-2 start --port 8083`
-2025-09-21T17:52:52.892994Z  INFO train_db: Starting Train-DB P2P Node
-2025-09-21T17:52:52.893161Z  INFO train_db: Starting P2P node on port 8083
-2025-09-21T17:52:52.899500Z  INFO train_db::network: Bluetooth support compiled in - multi-transport ready
-2025-09-21T17:52:52.900101Z  INFO libp2p_swarm: local_peer_id=12D3KooWEbdPFr18PU4p5mzv71cX4eKqAhxYUAneSWEw2dZTQLs3
-2025-09-21T17:52:52.900336Z  INFO train_db::network: Bluetooth transport initialized
-2025-09-21T17:52:52.900822Z  INFO train_db::bluetooth: Starting Bluetooth transport with btleplug...
-2025-09-21T17:52:52.950487Z  INFO train_db::bluetooth: Bluetooth transport started successfully
-2025-09-21T17:52:52.950508Z  INFO train_db::bluetooth: Scanning for TrainDB peers...
-2025-09-21T17:52:52.950596Z  INFO train_db::network: Starting TrainDB node event loop
-2025-09-21T17:52:52.950852Z  INFO train_db::network: Listening on /ip4/127.0.0.1/tcp/8083
-2025-09-21T17:52:52.950874Z  INFO train_db::network: Listening on /ip4/10.52.44.168/tcp/8083
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running `target/debug/train-db --db-path ./demo-data-1 dashboard --port 3000`
+2025-09-21T17:51:35.107266Z  INFO train_db: Starting Train-DB P2P Node
+2025-09-21T17:51:35.107474Z  INFO train_db: Starting Train-DB Dashboard on port 3000
+2025-09-21T17:51:35.114368Z  INFO train_db: 🌐 Dashboard available at: http://localhost:3000
+2025-09-21T17:51:35.114379Z  INFO train_db: 📊 Monitor your Train-DB node in real-time!
