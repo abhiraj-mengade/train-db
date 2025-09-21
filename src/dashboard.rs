@@ -186,9 +186,13 @@ impl Dashboard {
         peer_id: String,
         listen_addresses: Vec<String>,
     ) -> impl Filter<Extract = impl Reply, Error = warp::Rejection> + Clone {
-        let dashboard = self.clone();
-        let peer_id_clone = peer_id.clone();
-        let listen_addresses_clone = listen_addresses.clone();
+        let dashboard1 = self.clone();
+        let dashboard2 = self.clone();
+        let dashboard3 = self.clone();
+        let peer_id_clone1 = peer_id.clone();
+        let peer_id_clone2 = peer_id.clone();
+        let listen_addresses_clone1 = listen_addresses.clone();
+        let listen_addresses_clone2 = listen_addresses.clone();
 
         // Serve the main dashboard HTML
         let dashboard_html = warp::path::end()
@@ -201,9 +205,9 @@ impl Dashboard {
             .and(warp::path("dashboard"))
             .and(warp::get())
             .and_then(move || {
-                let dashboard = dashboard.clone();
-                let peer_id = peer_id_clone.clone();
-                let listen_addresses = listen_addresses_clone.clone();
+                let dashboard = dashboard1.clone();
+                let peer_id = peer_id_clone1.clone();
+                let listen_addresses = listen_addresses_clone1.clone();
                 async move {
                     match dashboard.get_dashboard_data(peer_id, listen_addresses).await {
                         Ok(data) => Ok::<_, warp::Rejection>(warp::reply::json(&data)),
@@ -219,9 +223,9 @@ impl Dashboard {
             .and(warp::path("stats"))
             .and(warp::get())
             .and_then(move || {
-                let dashboard = self.clone();
-                let peer_id = peer_id.clone();
-                let listen_addresses = listen_addresses.clone();
+                let dashboard = dashboard2.clone();
+                let peer_id = peer_id_clone2.clone();
+                let listen_addresses = listen_addresses_clone2.clone();
                 async move {
                     match dashboard.get_node_stats(peer_id, listen_addresses).await {
                         Ok(stats) => Ok::<_, warp::Rejection>(warp::reply::json(&stats)),
@@ -237,7 +241,7 @@ impl Dashboard {
             .and(warp::path("keys"))
             .and(warp::get())
             .and_then(move || {
-                let dashboard = self.clone();
+                let dashboard = dashboard3.clone();
                 async move {
                     match dashboard.get_database_keys().await {
                         Ok(keys) => Ok::<_, warp::Rejection>(warp::reply::json(&keys)),

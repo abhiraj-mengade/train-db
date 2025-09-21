@@ -1,6 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tracing::{info, error, warn};
 use tracing_subscriber;
 use libp2p::Multiaddr;
@@ -80,6 +82,18 @@ enum Commands {
         #[arg(short, long, default_value = "30")]
         duration: u64,
     },
+    /// Start P2P node with integrated API server
+    StartWithApi {
+        /// Port for the P2P node
+        #[arg(short, long, default_value = "8082")]
+        node_port: u16,
+        /// Port for the API server
+        #[arg(short, long, default_value = "8080")]
+        api_port: u16,
+        /// Bootstrap peer addresses (multiaddr format)
+        #[arg(short, long)]
+        bootstrap: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -124,6 +138,9 @@ async fn main() -> Result<()> {
         }
         Commands::MeshDemo { duration } => {
             run_mesh_demo(cli.db_path, duration).await?;
+        }
+        Commands::StartWithApi { node_port, api_port, bootstrap } => {
+            start_node_with_api(cli.db_path, node_port, api_port, bootstrap).await?;
         }
     }
     
@@ -313,6 +330,68 @@ async fn run_mesh_demo(_db_path: PathBuf, duration: u64) -> Result<()> {
         info!("To enable Bluetooth support:");
         info!("  cargo build --features bluetooth");
         info!("  cargo run --features bluetooth mesh-demo");
+    }
+    
+    Ok(())
+}
+
+async fn start_node_with_api(
+    db_path: PathBuf, 
+    node_port: u16, 
+    api_port: u16, 
+    bootstrap: Vec<String>
+) -> Result<()> {
+    info!("Starting Train-DB Node with integrated API server");
+    info!("P2P Node port: {}", node_port);
+    info!("API Server port: {}", api_port);
+    
+    // Create storage for the API server (this will hold the database lock)
+    let api_storage = RocksDBStorage::new(&db_path)?;
+    
+    // Create API server
+    let api_node = SimpleTrainDBNode::new(Box::new(api_storage), api_port);
+    
+    // Create storage for the P2P node (read-only, separate path to avoid locks)
+    let p2p_db_path = db_path.with_extension("p2p");
+    let p2p_storage = RocksDBStorage::new(&p2p_db_path)?;
+    
+    // Start P2P node
+    let mut p2p_node = TrainDBNode::new(p2p_storage, node_port).await?;
+    
+    // Connect to bootstrap peers if provided
+    for bootstrap_addr in bootstrap {
+        info!("Connecting to bootstrap peer: {}", bootstrap_addr);
+        if let Ok(addr) = bootstrap_addr.parse::<Multiaddr>() {
+            if let Err(e) = p2p_node.dial(addr).await {
+                warn!("Failed to connect to bootstrap peer: {}", e);
+            }
+        }
+    }
+    
+    // Start API server in background
+    let api_server = tokio::spawn(async move {
+        info!("🌐 API Server available at: http://localhost:{}", api_port);
+        info!("📊 Use curl to interact with the database!");
+        api_node.run().await
+    });
+    
+    // Start P2P node event loop
+    info!("🚀 Starting P2P node event loop...");
+    info!("📡 P2P node listening on port {}", node_port);
+    info!("🔗 Bluetooth transport enabled for multi-transport mesh");
+    
+    // Run both concurrently
+    tokio::select! {
+        result = p2p_node.run() => {
+            if let Err(e) = result {
+                error!("P2P node error: {}", e);
+            }
+        }
+        result = api_server => {
+            if let Err(e) = result {
+                error!("API server error: {}", e);
+            }
+        }
     }
     
     Ok(())
