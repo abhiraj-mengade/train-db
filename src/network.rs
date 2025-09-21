@@ -1,8 +1,7 @@
 use anyhow::Result;
 use libp2p::{
     gossipsub::{self, MessageAuthenticity},
-    identify::{self},
-    identity, noise, ping::{self},
+    identity, noise,
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Transport,
 };
@@ -13,64 +12,13 @@ use ::futures::prelude::*;
 use crate::storage::Storage;
 use crate::bluetooth::{BluetoothTransport, MultiTransport};
 
-// Main network behavior combining all protocols
-pub struct TrainDBBehaviour {
-    pub gossipsub: gossipsub::Behaviour,
-    pub identify: identify::Behaviour,
-    pub ping: ping::Behaviour,
-}
+// Use GossipSub behaviour directly
+pub type TrainDBBehaviour = gossipsub::Behaviour;
 
-#[derive(Debug)]
-pub enum TrainDBBehaviourEvent {
-    Gossipsub(gossipsub::Event),
-    Identify(identify::Event),
-    Ping(ping::Event),
-}
+// Use GossipSub events directly
+pub type TrainDBBehaviourEvent = gossipsub::Event;
 
-impl From<gossipsub::Event> for TrainDBBehaviourEvent {
-    fn from(event: gossipsub::Event) -> Self {
-        TrainDBBehaviourEvent::Gossipsub(event)
-    }
-}
-
-impl From<identify::Event> for TrainDBBehaviourEvent {
-    fn from(event: identify::Event) -> Self {
-        TrainDBBehaviourEvent::Identify(event)
-    }
-}
-
-impl From<ping::Event> for TrainDBBehaviourEvent {
-    fn from(event: ping::Event) -> Self {
-        TrainDBBehaviourEvent::Ping(event)
-    }
-}
-
-// For now, let's use a simpler approach with dummy behaviour
-// TODO: Implement proper NetworkBehaviour trait
-
-impl TrainDBBehaviour {
-    pub fn new(peer_id: PeerId) -> Self {
-        let gossipsub_config = gossipsub::Config::default();
-        let gossipsub = gossipsub::Behaviour::new(
-            MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
-            gossipsub_config,
-        )
-        .expect("Valid config");
-        
-        let identify = identify::Behaviour::new(identify::Config::new(
-            "/traindb/1.0.0".to_string(),
-            identity::Keypair::generate_ed25519().public(),
-        ));
-        
-        let ping = ping::Behaviour::new(ping::Config::new());
-        
-        Self {
-            gossipsub,
-            identify,
-            ping,
-        }
-    }
-}
+// TrainDBBehaviour is now a type alias for gossipsub::Behaviour
 
 // Main P2P node
 pub struct TrainDBNode {
@@ -104,10 +52,15 @@ impl TrainDBNode {
             .boxed();
         
         // Create network behavior
-        let behaviour = TrainDBBehaviour::new(peer_id);
+        let gossipsub_config = gossipsub::Config::default();
+        let behaviour = gossipsub::Behaviour::new(
+            MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
+            gossipsub_config,
+        )
+        .expect("Valid config");
         
         // Create swarm
-        let swarm = Swarm::with_tokio_executor(tcp_transport, behaviour, peer_id);
+        let swarm = Swarm::new(tcp_transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor());
         
         // Create command channels
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
@@ -150,7 +103,7 @@ impl TrainDBNode {
     }
     
     pub fn peer_id(&self) -> PeerId {
-        self.swarm.local_peer_id().clone()
+        *self.swarm.local_peer_id()
     }
     
     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
@@ -209,18 +162,15 @@ impl TrainDBNode {
     
     async fn handle_behaviour_event(&mut self, event: TrainDBBehaviourEvent) {
         match event {
-            TrainDBBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+            gossipsub::Event::Message {
                 propagation_source: _,
                 message_id: _,
                 message,
-            }) => {
+            } => {
                 self.handle_gossipsub_message(message).await;
             }
-            TrainDBBehaviourEvent::Identify(event) => {
-                debug!("Identify event: {:?}", event);
-            }
-            TrainDBBehaviourEvent::Ping(event) => {
-                debug!("Ping event: {:?}", event);
+            _ => {
+                debug!("GossipSub event: {:?}", event);
             }
         }
     }
@@ -274,7 +224,7 @@ impl TrainDBNode {
                 });
                 
                 if let Ok(data) = serde_json::to_vec(&message) {
-                    if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
+                    if let Err(e) = self.swarm.behaviour_mut().publish(
                         gossipsub::IdentTopic::new("traindb-data"),
                         data,
                     ) {
@@ -303,7 +253,7 @@ impl TrainDBNode {
                 });
                 
                 if let Ok(data) = serde_json::to_vec(&message) {
-                    if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
+                    if let Err(e) = self.swarm.behaviour_mut().publish(
                         gossipsub::IdentTopic::new("traindb-data"),
                         data,
                     ) {
@@ -323,7 +273,7 @@ impl TrainDBNode {
                 }
             }
             NetworkCommand::BroadcastMessage { message } => {
-                if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(
+                if let Err(e) = self.swarm.behaviour_mut().publish(
                     gossipsub::IdentTopic::new("traindb-data"),
                     message,
                 ) {

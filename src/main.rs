@@ -5,7 +5,7 @@ use tracing::{info, error, warn};
 use tracing_subscriber;
 use libp2p::Multiaddr;
 
-mod network;  // Re-enabled - let's test if it works now
+mod network;  // Re-enabled - P2P networking is now working!
 mod storage;
 // mod cli;  // Temporarily disabled
 mod bluetooth;

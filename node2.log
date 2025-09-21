@@ -1,0 +1,254 @@
+warning: unused imports: `error` and `warn`
+ --> src/main.rs:4:21
+  |
+4 | use tracing::{info, error, warn};
+  |                     ^^^^^  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `error`
+ --> src/mesh_node.rs:5:27
+  |
+5 | use tracing::{info, warn, error, debug};
+  |                           ^^^^^
+
+warning: unused variable: `bt`
+   --> src/mesh_node.rs:125:29
+    |
+125 |         if let Some(ref mut bt) = self.bluetooth_transport {
+    |                             ^^ help: if this is intentional, prefix it with an underscore: `_bt`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `conn_manager`
+   --> src/main.rs:244:17
+    |
+244 |         let mut conn_manager = BluetoothConnectionManager::new()?;
+    |                 ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_conn_manager`
+
+warning: unused variable: `msg_handler`
+   --> src/main.rs:249:13
+    |
+249 |         let msg_handler = BluetoothMessageHandler::new();
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_msg_handler`
+
+warning: variable does not need to be mutable
+   --> src/main.rs:244:13
+    |
+244 |         let mut conn_manager = BluetoothConnectionManager::new()?;
+    |             ----^^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: field `command_sender` is never read
+  --> src/network.rs:28:5
+   |
+24 | pub struct TrainDBNode {
+   |            ----------- field in this struct
+...
+28 |     command_sender: mpsc::UnboundedSender<NetworkCommand>,
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: variants `SetKey`, `GetKey`, `DeleteKey`, `ListKeys`, and `BroadcastMessage` are never constructed
+  --> src/network.rs:34:5
+   |
+33 | pub enum NetworkCommand {
+   |          -------------- variants in this enum
+34 |     SetKey { key: String, value: String },
+   |     ^^^^^^
+35 |     GetKey { key: String },
+   |     ^^^^^^
+36 |     DeleteKey { key: String },
+   |     ^^^^^^^^^
+37 |     ListKeys,
+   |     ^^^^^^^^
+38 |     BroadcastMessage { message: Vec<u8> },
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `NetworkCommand` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `peer_id`, `listen_addresses`, `add_bootstrap_peer`, and `get_command_sender` are never used
+   --> src/network.rs:105:12
+    |
+41  | impl TrainDBNode {
+    | ---------------- methods in this implementation
+...
+105 |     pub fn peer_id(&self) -> PeerId {
+    |            ^^^^^^^
+...
+109 |     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
+    |            ^^^^^^^^^^^^^^^^
+...
+113 |     pub async fn add_bootstrap_peer(&mut self, addr: &str) -> Result<()> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+286 |     pub fn get_command_sender(&self) -> mpsc::UnboundedSender<NetworkCommand> {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: method `exists` is never used
+  --> src/storage.rs:19:8
+   |
+13 | pub trait Storage: Send + Sync {
+   |           ------- method in this trait
+...
+19 |     fn exists(&self, key: &str) -> Result<bool>;
+   |        ^^^^^^
+
+warning: methods `get_peer_id`, `get_listen_addresses`, and `connect_to_peer` are never used
+  --> src/bluetooth.rs:21:8
+   |
+18 | pub trait MultiTransport: Send + Sync {
+   |           -------------- methods in this trait
+...
+21 |     fn get_peer_id(&self) -> PeerId;
+   |        ^^^^^^^^^^^
+22 |     fn get_listen_addresses(&self) -> Vec<Multiaddr>;
+   |        ^^^^^^^^^^^^^^^^^^^^
+23 |     async fn discover_peers(&mut self) -> Result<Vec<PeerId>>;
+24 |     async fn connect_to_peer(&mut self, peer_id: PeerId) -> Result<()>;
+   |              ^^^^^^^^^^^^^^^
+
+warning: fields `peer_id` and `listen_addresses` are never read
+  --> src/bluetooth.rs:30:5
+   |
+29 | pub struct BluetoothTransport {
+   |            ------------------ fields in this struct
+30 |     peer_id: PeerId,
+   |     ^^^^^^^
+31 |     listen_addresses: Vec<Multiaddr>,
+   |     ^^^^^^^^^^^^^^^^
+
+warning: field `discovered_peers` is never read
+   --> src/bluetooth.rs:270:5
+    |
+266 | pub struct BluetoothDiscovery {
+    |            ------------------ field in this struct
+...
+270 |     discovered_peers: Arc<Mutex<HashMap<String, String>>>,
+    |     ^^^^^^^^^^^^^^^^
+
+warning: method `get_discovered_peers` is never used
+   --> src/bluetooth.rs:305:18
+    |
+273 | impl BluetoothDiscovery {
+    | ----------------------- method in this implementation
+...
+305 |     pub async fn get_discovered_peers(&self) -> HashMap<String, String> {
+    |                  ^^^^^^^^^^^^^^^^^^^^
+
+warning: field `connections` is never read
+   --> src/bluetooth.rs:322:5
+    |
+320 | pub struct BluetoothConnectionManager {
+    |            -------------------------- field in this struct
+321 |     #[cfg(feature = "bluetooth")]
+322 |     connections: Arc<Mutex<HashMap<String, String>>>,
+    |     ^^^^^^^^^^^
+
+warning: methods `connect_to_peer`, `disconnect_from_peer`, and `get_connections` are never used
+   --> src/bluetooth.rs:333:18
+    |
+325 | impl BluetoothConnectionManager {
+    | ------------------------------- methods in this implementation
+...
+333 |     pub async fn connect_to_peer(&mut self, address: String) -> Result<()> {
+    |                  ^^^^^^^^^^^^^^^
+...
+350 |     pub async fn disconnect_from_peer(&mut self, address: String) -> Result<()> {
+    |                  ^^^^^^^^^^^^^^^^^^^^
+...
+367 |     pub async fn get_connections(&self) -> HashMap<String, String> {
+    |                  ^^^^^^^^^^^^^^^
+
+warning: field `message_queue` is never read
+   --> src/bluetooth.rs:384:5
+    |
+382 | pub struct BluetoothMessageHandler {
+    |            ----------------------- field in this struct
+383 |     #[cfg(feature = "bluetooth")]
+384 |     message_queue: Arc<Mutex<Vec<BluetoothMessage>>>,
+    |     ^^^^^^^^^^^^^
+
+warning: fields `from`, `to`, `data`, and `timestamp` are never read
+   --> src/bluetooth.rs:389:9
+    |
+388 | pub struct BluetoothMessage {
+    |            ---------------- fields in this struct
+389 |     pub from: String,
+    |         ^^^^
+390 |     pub to: String,
+    |         ^^
+391 |     pub data: Vec<u8>,
+    |         ^^^^
+392 |     pub timestamp: chrono::DateTime<chrono::Utc>,
+    |         ^^^^^^^^^
+    |
+    = note: `BluetoothMessage` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `send_message` and `handle_incoming_messages` are never used
+   --> src/bluetooth.rs:403:18
+    |
+395 | impl BluetoothMessageHandler {
+    | ---------------------------- methods in this implementation
+...
+403 |     pub async fn send_message(&self, to: String, data: Vec<u8>) -> Result<()> {
+    |                  ^^^^^^^^^^^^
+...
+426 |     pub async fn handle_incoming_messages(&mut self) -> Result<()> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `peer_id`, `last_seen`, and `is_connected` are never read
+  --> src/mesh_node.rs:20:9
+   |
+19 | pub struct PeerInfo {
+   |            -------- fields in this struct
+20 |     pub peer_id: PeerId,
+   |         ^^^^^^^
+21 |     pub transport: TransportType,
+22 |     pub last_seen: chrono::DateTime<chrono::Utc>,
+   |         ^^^^^^^^^
+23 |     pub is_connected: bool,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `PeerInfo` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `storage` is never read
+  --> src/mesh_node.rs:29:5
+   |
+28 | pub struct AutoMeshNode {
+   |            ------------ field in this struct
+29 |     storage: Arc<Mutex<Box<dyn Storage>>>,
+   |     ^^^^^^^
+
+warning: associated items `update_bluetooth_peers`, `send_message`, and `send_via_wifi` are never used
+   --> src/mesh_node.rs:199:14
+    |
+36  | impl AutoMeshNode {
+    | ----------------- associated items in this implementation
+...
+199 |     async fn update_bluetooth_peers(
+    |              ^^^^^^^^^^^^^^^^^^^^^^
+...
+259 |     pub async fn send_message(&mut self, peer_id: PeerId, message: Vec<u8>) -> Result<()> {
+    |                  ^^^^^^^^^^^^
+...
+286 |     async fn send_via_wifi(&self, _peer_id: PeerId, _message: Vec<u8>) -> Result<()> {
+    |              ^^^^^^^^^^^^^
+
+warning: `train-db` (bin "train-db") generated 22 warnings (run `cargo fix --bin "train-db"` to apply 3 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running `target/debug/train-db --db-path ./test-p2p-2 start --port 8083`
+2025-09-21T17:24:29.566136Z  INFO train_db: Starting Train-DB P2P Node
+2025-09-21T17:24:29.566336Z  INFO train_db: Starting P2P node on port 8083
+2025-09-21T17:24:29.574923Z  INFO libp2p_swarm: local_peer_id=12D3KooWK5sCPvB637gTGxg8AuqjWhyoVrgiAkhxFMTkWyH4UPoj
+2025-09-21T17:24:29.575153Z  INFO train_db::network: Bluetooth transport initialized
+2025-09-21T17:24:29.575605Z  INFO train_db::bluetooth: Starting Bluetooth transport with btleplug...
+2025-09-21T17:24:29.620279Z  INFO train_db::bluetooth: Bluetooth transport started successfully
+2025-09-21T17:24:29.620311Z  INFO train_db::bluetooth: Scanning for TrainDB peers...
+2025-09-21T17:24:29.620414Z  INFO train_db::network: Starting TrainDB node event loop
+2025-09-21T17:24:29.620629Z  INFO train_db::network: Listening on /ip4/127.0.0.1/tcp/8083
+2025-09-21T17:24:29.620659Z  INFO train_db::network: Listening on /ip4/192.168.0.121/tcp/8083
