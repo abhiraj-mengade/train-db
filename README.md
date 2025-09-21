@@ -1,4 +1,5 @@
 # Train-DB: P2P Decentralized Key-Value Database
+<img width="1344" height="768" alt="train-db" src="https://github.com/user-attachments/assets/b0deb0d8-b36d-4da7-b569-1d612356917e" />
 
 A resilient, peer-to-peer key-value database designed for hostile network conditions, featuring multi-transport mesh networking with both Wi-Fi and Bluetooth support.
 
