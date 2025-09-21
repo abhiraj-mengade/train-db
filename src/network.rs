@@ -1,13 +1,11 @@
 use anyhow::Result;
 use libp2p::{
-    gossipsub::{self, MessageAuthenticity, Topic},
+    gossipsub::{self, MessageAuthenticity},
     identify::{self},
     identity, noise, ping::{self},
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Transport,
 };
-use libp2p::swarm::derive_prelude::*;
-use libp2p::swarm::NetworkBehaviour;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use ::futures::prelude::*;
@@ -47,47 +45,8 @@ impl From<ping::Event> for TrainDBBehaviourEvent {
     }
 }
 
-impl NetworkBehaviour for TrainDBBehaviour {
-    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler;
-    type ToSwarm = TrainDBBehaviourEvent;
-
-    fn handle_established_inbound_connection(
-        &mut self,
-        _connection_id: libp2p::swarm::ConnectionId,
-        _peer: PeerId,
-        _local_addr: &Multiaddr,
-        _remote_addr: &Multiaddr,
-    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
-        Ok(libp2p::swarm::dummy::ConnectionHandler)
-    }
-
-    fn handle_established_outbound_connection(
-        &mut self,
-        _connection_id: libp2p::swarm::ConnectionId,
-        _peer: PeerId,
-        _addr: &Multiaddr,
-        _role_override: libp2p::core::Endpoint,
-    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
-        Ok(libp2p::swarm::dummy::ConnectionHandler)
-    }
-
-    fn on_connection_handler_event(
-        &mut self,
-        _peer_id: PeerId,
-        _connection_id: libp2p::swarm::ConnectionId,
-        _event: libp2p::swarm::THandlerOutEvent<Self>,
-    ) {
-    }
-
-    fn on_swarm_event(&mut self, _event: libp2p::swarm::FromSwarm<'_>) {}
-
-    fn poll(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<libp2p::swarm::ToSwarm<Self::ToSwarm, libp2p::swarm::THandlerInEvent<Self>>> {
-        std::task::Poll::Pending
-    }
-}
+// For now, let's use a simpler approach with dummy behaviour
+// TODO: Implement proper NetworkBehaviour trait
 
 impl TrainDBBehaviour {
     pub fn new(peer_id: PeerId) -> Self {
