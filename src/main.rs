@@ -3,15 +3,16 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::{info, error, warn};
 use tracing_subscriber;
+use libp2p::Multiaddr;
 
-// mod network;  // Temporarily disabled due to libp2p API issues
+mod network;  // Re-enabled - let's test if it works now
 mod storage;
 // mod cli;  // Temporarily disabled
 mod bluetooth;
 mod simple_node;
 mod mesh_node;
 
-// use network::TrainDBNode;
+use network::TrainDBNode;
 use storage::{RocksDBStorage, Storage};
 // use cli::InteractiveCLI;
 use simple_node::SimpleTrainDBNode;
@@ -98,8 +99,7 @@ async fn main() -> Result<()> {
     
     match cli.command {
         Commands::Start { port, bootstrap, interactive } => {
-            // start_node(cli.db_path, port, bootstrap, interactive).await?;
-            println!("P2P node functionality temporarily disabled. Use 'api' command to start HTTP API server.");
+            start_node(cli.db_path, port, bootstrap, interactive).await?;
         }
         Commands::Set { key, value } => {
             set_key(cli.db_path, key, value).await?;
@@ -130,11 +130,31 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// async fn start_node(db_path: PathBuf, port: u16, bootstrap: Vec<String>, interactive: bool) -> Result<()> {
-//     // Temporarily disabled due to libp2p API issues
-//     println!("P2P node functionality temporarily disabled. Use 'api' command to start HTTP API server.");
-//     Ok(())
-// }
+async fn start_node(db_path: PathBuf, port: u16, bootstrap: Vec<String>, interactive: bool) -> Result<()> {
+    info!("Starting P2P node on port {}", port);
+    
+    let storage = RocksDBStorage::new(&db_path)?;
+    let mut node = TrainDBNode::new(storage, port).await?;
+    
+    // Connect to bootstrap peers if provided
+    for bootstrap_addr in bootstrap {
+        info!("Connecting to bootstrap peer: {}", bootstrap_addr);
+        if let Ok(addr) = bootstrap_addr.parse::<Multiaddr>() {
+            node.dial(addr).await?;
+        }
+    }
+    
+    if interactive {
+        info!("Starting interactive CLI mode");
+        // TODO: Implement interactive CLI
+        println!("Interactive CLI not yet implemented. Use 'api' command for HTTP interface.");
+    }
+    
+    // Run the node
+    node.run().await?;
+    
+    Ok(())
+}
 
 async fn set_key(db_path: PathBuf, key: String, value: String) -> Result<()> {
     let storage = RocksDBStorage::new(db_path)?;

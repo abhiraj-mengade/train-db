@@ -1,22 +1,23 @@
 use anyhow::Result;
 use libp2p::{
-    gossipsub::{self, Gossipsub, GossipsubConfig},
-    identify, identity, noise, ping,
-    swarm::{NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent},
+    gossipsub::{self, MessageAuthenticity, Topic},
+    identify::{self},
+    identity, noise, ping::{self},
+    swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Transport,
 };
+use libp2p::swarm::derive_prelude::*;
+use libp2p::swarm::NetworkBehaviour;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
-use futures::StreamExt;
+use ::futures::prelude::*;
 
 use crate::storage::Storage;
 use crate::bluetooth::{BluetoothTransport, MultiTransport};
 
 // Main network behavior combining all protocols
-#[derive(NetworkBehaviour)]
-#[behaviour(out_event = "TrainDBBehaviourEvent")]
 pub struct TrainDBBehaviour {
-    pub gossipsub: Gossipsub,
+    pub gossipsub: gossipsub::Behaviour,
     pub identify: identify::Behaviour,
     pub ping: ping::Behaviour,
 }
@@ -46,11 +47,53 @@ impl From<ping::Event> for TrainDBBehaviourEvent {
     }
 }
 
+impl NetworkBehaviour for TrainDBBehaviour {
+    type ConnectionHandler = libp2p::swarm::dummy::ConnectionHandler;
+    type ToSwarm = TrainDBBehaviourEvent;
+
+    fn handle_established_inbound_connection(
+        &mut self,
+        _connection_id: libp2p::swarm::ConnectionId,
+        _peer: PeerId,
+        _local_addr: &Multiaddr,
+        _remote_addr: &Multiaddr,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        Ok(libp2p::swarm::dummy::ConnectionHandler)
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        _connection_id: libp2p::swarm::ConnectionId,
+        _peer: PeerId,
+        _addr: &Multiaddr,
+        _role_override: libp2p::core::Endpoint,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        Ok(libp2p::swarm::dummy::ConnectionHandler)
+    }
+
+    fn on_connection_handler_event(
+        &mut self,
+        _peer_id: PeerId,
+        _connection_id: libp2p::swarm::ConnectionId,
+        _event: libp2p::swarm::THandlerOutEvent<Self>,
+    ) {
+    }
+
+    fn on_swarm_event(&mut self, _event: libp2p::swarm::FromSwarm<'_>) {}
+
+    fn poll(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<libp2p::swarm::ToSwarm<Self::ToSwarm, libp2p::swarm::THandlerInEvent<Self>>> {
+        std::task::Poll::Pending
+    }
+}
+
 impl TrainDBBehaviour {
     pub fn new(peer_id: PeerId) -> Self {
-        let gossipsub_config = GossipsubConfig::default();
-        let gossipsub = Gossipsub::new(
-            gossipsub::MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
+        let gossipsub_config = gossipsub::Config::default();
+        let gossipsub = gossipsub::Behaviour::new(
+            MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
             gossipsub_config,
         )
         .expect("Valid config");
@@ -105,8 +148,7 @@ impl TrainDBNode {
         let behaviour = TrainDBBehaviour::new(peer_id);
         
         // Create swarm
-        let swarm = SwarmBuilder::with_tokio_executor(tcp_transport, behaviour, peer_id)
-            .build();
+        let swarm = Swarm::with_tokio_executor(tcp_transport, behaviour, peer_id);
         
         // Create command channels
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
@@ -149,7 +191,7 @@ impl TrainDBNode {
     }
     
     pub fn peer_id(&self) -> PeerId {
-        *self.swarm.local_peer_id()
+        self.swarm.local_peer_id().clone()
     }
     
     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
@@ -158,6 +200,11 @@ impl TrainDBNode {
     
     pub async fn add_bootstrap_peer(&mut self, addr: &str) -> Result<()> {
         let multiaddr: Multiaddr = addr.parse()?;
+        self.swarm.dial(multiaddr)?;
+        Ok(())
+    }
+    
+    pub async fn dial(&mut self, multiaddr: Multiaddr) -> Result<()> {
         self.swarm.dial(multiaddr)?;
         Ok(())
     }
@@ -219,7 +266,7 @@ impl TrainDBNode {
         }
     }
     
-    async fn handle_gossipsub_message(&mut self, message: gossipsub::GossipsubMessage) {
+    async fn handle_gossipsub_message(&mut self, message: gossipsub::Message) {
         // Handle incoming messages from other peers
         debug!("Received message: {:?}", message);
         
