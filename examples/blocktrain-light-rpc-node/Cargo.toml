@@ -1,0 +1,96 @@
+[package]
+name = "blocktrain-light-rpc-node"
+version = "0.1.0"
+edition = "2021"
+authors = ["Edgetributor SubDAO & MontaQ Labs"]
+description = "Lightweight RPC Node with Multi-Transport Synchronization using train-db SDK"
+license = "MIT"
+keywords = ["blockchain", "ethereum", "rpc", "p2p", "bluetooth"]
+categories = ["network-programming", "cryptography"]
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.35", features = ["full"] }
+futures = "0.3.30"
+async-trait = "0.1.77"
+
+# HTTP and JSON-RPC - Fixed version compatibility issues
+hyper = { version = "0.14", features = ["full"] }
+hyper-tls = "0.5"
+tower = "0.4.13"
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
+
+# Using older but stable JSON-RPC implementation
+jsonrpc-core = "18.0"
+jsonrpc-http-server = "18.0"
+jsonrpc-derive = "18.0"
+
+# HTTP client with better error handling
+reqwest = { version = "0.11", features = ["json", "native-tls"] }
+
+# Blockchain and crypto - Fixed compatibility
+ethers = { version = "2.0.14", features = ["full"] }
+ethereum-types = "0.14.1"
+rlp = "0.5.2"
+sha3 = "0.10.8"
+hex = "0.4.3"
+
+# Serialization
+bincode = "1.3.3"
+
+# P2P networking - Fixed libp2p version issues
+libp2p = { version = "0.53", features = ["gossipsub", "mdns", "noise", "tcp", "ping", "identify", "yamux"] }
+
+# Bluetooth support with better error handling
+btleplug = { version = "0.11.5", optional = true }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+
+# Storage - Fixed RocksDB compilation issues
+rocksdb = { version = "0.21.0", default-features = false, features = ["snappy"] }
+
+# Configuration and utilities
+config = "0.14.0"
+toml = "0.8.8"
+anyhow = "1.0.79"
+thiserror = "1.0.56"
+log = "0.4.20"
+env_logger = "0.10.2"
+clap = { version = "4.4", features = ["derive", "env"] }
+bytes = "1.5.0"
+dirs = "5.0.1"
+url = "2.5.0"
+
+# Additional utilities for better error handling
+parking_lot = "0.12.1"  # Better mutexes
+dashmap = "5.5.3"       # Concurrent HashMap
+pin-project-lite = "0.2.13"
+
+# Development dependencies
+[dev-dependencies]
+tokio-test = "0.4.4"
+tempfile = "3.8"
+criterion = "0.5"
+proptest = "1.4"
+
+[[bin]]
+name = "rpc-node"
+path = "src/main.rs"
+
+[[bench]]
+name = "sync_benchmark"
+harness = false
+
+[features]
+default = ["bluetooth"]
+bluetooth = ["btleplug"]
+metrics = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 1

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  rpc-node-1:
+    build: .
+    ports:
+      - "8546:8546"
+    volumes:
+      - ./data1:/app/data
+    environment:
+      - RUST_LOG=info
+    command: rpc-node --data-dir /app/data --rpc-addr 0.0.0.0:8546
+
+  rpc-node-2:
+    build: .
+    ports:
+      - "8547:8546"
+    volumes:
+      - ./data2:/app/data
+    environment:
+      - RUST_LOG=info
+    command: rpc-node --data-dir /app/data --rpc-addr 0.0.0.0:8546
+    depends_on:
+      - rpc-node-1
