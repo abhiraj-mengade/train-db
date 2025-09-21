@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrainDB - P2P Decentralized Database with Bluetooth</title>
+    <meta name="description" content="A P2P decentralized key-value database built in Rust with TCP/GossipSub networking and Bluetooth Low Energy support for hostile network conditions.">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yourusername.github.io/train-db/">
+    <meta property="og:title" content="TrainDB - P2P Decentralized Database">
+    <meta property="og:description" content="P2P decentralized key-value database with Bluetooth support">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://yourusername.github.io/train-db/">
+    <meta property="twitter:title" content="TrainDB - P2P Decentralized Database">
+    <meta property="twitter:description" content="P2P decentralized key-value database with Bluetooth support">
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1e293b 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 100px 0;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1e293b 50%, var(--bg-dark) 100%);
+        }
+
+        .hero-banner {
+            margin-bottom: 40px;
+        }
+
+        .banner-image {
+            max-width: 100%;
+            height: auto;
+            max-height: 300px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .banner-image:hover {
+            transform: scale(1.02);
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary) 50%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Features */
+        .features {
+            padding: 100px 0;
+            background: var(--bg-card);
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 60px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+        }
+
+        /* Tech Stack */
+        .tech-stack {
+            padding: 100px 0;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .tech-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .tech-item:hover {
+            transform: translateY(-3px);
+            border-color: var(--primary);
+        }
+
+        .tech-item .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* Demo Section */
+        .demo {
+            padding: 100px 0;
+            background: var(--bg-card);
+        }
+
+        .demo-code {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            margin: 40px 0;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            overflow-x: auto;
+        }
+
+        .demo-code pre {
+            color: #e6edf3;
+            line-height: 1.6;
+        }
+
+        .comment {
+            color: #7d8590;
+        }
+
+        .keyword {
+            color: #ff7b72;
+        }
+
+        .string {
+            color: #a5d6ff;
+        }
+
+        .number {
+            color: #79c0ff;
+        }
+
+        /* Getting Started */
+        .getting-started {
+            padding: 100px 0;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .step {
+            text-align: center;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .step h3 {
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-dark);
+            border-top: 1px solid var(--border);
+            padding: 50px 0;
+            text-align: center;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .banner-image {
+                max-height: 200px;
+                margin: 0 20px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav container">
+            <a href="#" class="logo">
+                🚂 TrainDB
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#demo">Demo</a></li>
+                <li><a href="#getting-started">Get Started</a></li>
+                <li><a href="https://github.com/yourusername/train-db" target="_blank">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-banner">
+                <img src="https://github.com/user-attachments/assets/b0deb0d8-b36d-4da7-b569-1d612356917e" alt="TrainDB Banner" class="banner-image">
+            </div>
+            <h1>TrainDB</h1>
+            <p>P2P Decentralized Key-Value Database with Bluetooth Low Energy Support for Hostile Network Conditions</p>
+            <div class="cta-buttons">
+                <a href="https://github.com/yourusername/train-db" class="btn btn-primary" target="_blank">
+                    📚 View on GitHub
+                </a>
+                <a href="#demo" class="btn btn-secondary">
+                    🚀 See Demo
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Features</h2>
+            <p class="section-subtitle">Built for reliability, scalability, and resilience in challenging network environments</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🌐</span>
+                    <h3 class="feature-title">P2P Networking</h3>
+                    <p class="feature-description">Decentralized peer-to-peer communication using TCP/GossipSub for reliable data synchronization across nodes.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🔵</span>
+                    <h3 class="feature-title">Bluetooth Low Energy</h3>
+                    <p class="feature-description">BLE device discovery and scanning for mesh-like communication without traditional network infrastructure.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3 class="feature-title">High Performance</h3>
+                    <p class="feature-description">Built in Rust with RocksDB storage engine for fast, persistent key-value operations.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🛡️</span>
+                    <h3 class="feature-title">Fault Tolerant</h3>
+                    <p class="feature-description">Designed for hostile network conditions with automatic peer discovery and connection recovery.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🔗</span>
+                    <h3 class="feature-title">Multi-Transport</h3>
+                    <p class="feature-description">Dual transport layer using both TCP/IP and Bluetooth for maximum connectivity and resilience.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🌐</span>
+                    <h3 class="feature-title">REST API</h3>
+                    <p class="feature-description">Simple HTTP REST API for easy integration with existing applications and services.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack -->
+    <section class="tech-stack">
+        <div class="container">
+            <h2 class="section-title">Tech Stack</h2>
+            <p class="section-subtitle">Built with modern, reliable technologies</p>
+            
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <span class="icon">🦀</span>
+                    <h3>Rust</h3>
+                    <p>Memory-safe systems programming</p>
+                </div>
+                <div class="tech-item">
+                    <span class="icon">🪨</span>
+                    <h3>RocksDB</h3>
+                    <p>High-performance storage engine</p>
+                </div>
+                <div class="tech-item">
+                    <span class="icon">🌐</span>
+                    <h3>libp2p</h3>
+                    <p>Modular P2P networking stack</p>
+                </div>
+                <div class="tech-item">
+                    <span class="icon">🔵</span>
+                    <h3>btleplug</h3>
+                    <p>Cross-platform Bluetooth LE</p>
+                </div>
+                <div class="tech-item">
+                    <span class="icon">📡</span>
+                    <h3>GossipSub</h3>
+                    <p>Mesh networking protocol</p>
+                </div>
+                <div class="tech-item">
+                    <span class="icon">⚡</span>
+                    <h3>Tokio</h3>
+                    <p>Async runtime for Rust</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo -->
+    <section id="demo" class="demo">
+        <div class="container">
+            <h2 class="section-title">Quick Demo</h2>
+            <p class="section-subtitle">Get TrainDB running in minutes</p>
+            
+            <div class="demo-code">
+                <pre><code><span class="comment"># Clone and build</span>
+<span class="keyword">git clone</span> <span class="string">https://github.com/yourusername/train-db.git</span>
+<span class="keyword">cd</span> train-db
+<span class="keyword">cargo build</span> <span class="string">--features bluetooth --release</span>
+
+<span class="comment"># Start first node with API</span>
+<span class="keyword">./target/release/train-db</span> <span class="string">--db-path ./node1 start-with-api \</span>
+    <span class="string">--node-port 4001 --api-port 8001</span>
+
+<span class="comment"># Start second node</span>
+<span class="keyword">./target/release/train-db</span> <span class="string">--db-path ./node2 start-with-api \</span>
+    <span class="string">--node-port 4002 --api-port 8002 \</span>
+    <span class="string">--bootstrap /ip4/127.0.0.1/tcp/4001</span>
+
+<span class="comment"># Use the REST API</span>
+<span class="keyword">curl</span> <span class="string">-X POST "http://localhost:8001/api/keys"</span> <span class="string">\</span>
+     <span class="string">-H "Content-Type: application/json"</span> <span class="string">\</span>
+     <span class="string">-d '{"key": "hello", "value": "world"}'</span>
+
+<span class="keyword">curl</span> <span class="string">"http://localhost:8001/api/keys"</span></code></pre>
+            </div>
+
+            <div class="cta-buttons">
+                <a href="./demo_bluetooth.sh" class="btn btn-primary" download>
+                    📥 Download Demo Script
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Getting Started -->
+    <section id="getting-started" class="getting-started">
+        <div class="container">
+            <h2 class="section-title">Getting Started</h2>
+            <p class="section-subtitle">Follow these simple steps to set up TrainDB</p>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Install Rust</h3>
+                    <p>Make sure you have Rust installed on your system. Visit <a href="https://rustup.rs/" target="_blank" style="color: var(--primary);">rustup.rs</a> for installation instructions.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Clone & Build</h3>
+                    <p>Clone the repository and build TrainDB with Bluetooth support using Cargo.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Start Nodes</h3>
+                    <p>Launch multiple TrainDB nodes and connect them to form a decentralized network.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Use the API</h3>
+                    <p>Interact with your distributed database using the simple REST API endpoints.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo">
+                    🚂 TrainDB
+                </div>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/yourusername/train-db" target="_blank">GitHub</a></li>
+                    <li><a href="https://github.com/yourusername/train-db/blob/main/README.md" target="_blank">Documentation</a></li>
+                    <li><a href="https://github.com/yourusername/train-db/issues" target="_blank">Issues</a></li>
+                    <li><a href="https://github.com/yourusername/train-db/releases" target="_blank">Releases</a></li>
+                </ul>
+            </div>
+            <div style="margin-top: 30px; color: var(--text-muted);">
+                <p>&copy; 2024 TrainDB. Built with ❤️ in Rust.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,22 @@
+title: TrainDB
+description: P2P Decentralized Database with Bluetooth Low Energy Support
+url: "https://yourusername.github.io"
+baseurl: "/train-db"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+
+# Exclude files from processing
+exclude:
+  - README.md
+
+# Include files
+include:
+  - demo_bluetooth.sh
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
