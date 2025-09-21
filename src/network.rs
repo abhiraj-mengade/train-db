@@ -45,8 +45,11 @@ impl TrainDBNode {
         let keypair = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(keypair.public());
         
-        // Create TCP transport
-        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+        // Create TCP transport with keep-alive settings
+        let tcp_config = tcp::Config::default()
+            .nodelay(true);
+        
+        let tcp_transport = tcp::tokio::Transport::new(tcp_config)
             .upgrade(libp2p::core::upgrade::Version::V1)
             .authenticate(noise::Config::new(&keypair)?)
             .multiplex(yamux::Config::default());
@@ -146,8 +149,8 @@ impl TrainDBNode {
         // Give the node time to establish initial connections
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         
-        // Start a keep-alive task (less frequent to reduce churn)
-        let mut keep_alive_interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        // Start a keep-alive task (very frequent to prevent timeouts)
+        let mut keep_alive_interval = tokio::time::interval(std::time::Duration::from_secs(5));
         
         // Start Bluetooth peer discovery task
         let mut bluetooth_discovery_interval = tokio::time::interval(std::time::Duration::from_secs(15));
@@ -166,10 +169,22 @@ impl TrainDBNode {
                 }
                 _ = keep_alive_interval.tick() => {
                     // Send a keep-alive message
-                    let topic = gossipsub::IdentTopic::new("train-db");
-                    let message = format!("Keep-alive from {}", self.swarm.local_peer_id());
-                    if let Err(e) = self.swarm.behaviour_mut().publish(topic, message.as_bytes()) {
-                        debug!("Failed to send keep-alive: {}", e);
+                    let keep_alive_msg = serde_json::json!({
+                        "type": "keep_alive",
+                        "peer_id": self.swarm.local_peer_id().to_string(),
+                        "timestamp": chrono::Utc::now().timestamp(),
+                        "listen_addresses": self.swarm.listeners().cloned().collect::<Vec<_>>()
+                    });
+                    
+                    if let Ok(data) = serde_json::to_vec(&keep_alive_msg) {
+                        if let Err(e) = self.swarm.behaviour_mut().publish(
+                            gossipsub::IdentTopic::new("traindb-data"),
+                            data,
+                        ) {
+                            debug!("Failed to send keep-alive: {}", e);
+                        } else {
+                            info!("📡 Sent keep-alive message to maintain connection");
+                        }
                     }
                 }
                 _ = bluetooth_discovery_interval.tick() => {
@@ -237,11 +252,55 @@ impl TrainDBNode {
                 };
                 info!("✅ {} Connected to peer: {}", transport_type, peer_id);
                 
-                // Give the connection a moment to stabilize before sending data
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                // Give the connection time to fully establish
+                tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                
+                // Send a welcome message to establish the connection
+                let welcome_msg = serde_json::json!({
+                    "type": "welcome",
+                    "peer_id": self.swarm.local_peer_id().to_string(),
+                    "timestamp": chrono::Utc::now().timestamp()
+                });
+                
+                if let Ok(data) = serde_json::to_vec(&welcome_msg) {
+                    if let Err(e) = self.swarm.behaviour_mut().publish(
+                        gossipsub::IdentTopic::new("traindb-data"),
+                        data,
+                    ) {
+                        debug!("Failed to send welcome message: {}", e);
+                    } else {
+                        info!("📤 Sent welcome message to peer: {}", peer_id);
+                    }
+                }
+                
+                // Send an immediate keep-alive message
+                let keep_alive_msg = serde_json::json!({
+                    "type": "keep_alive",
+                    "peer_id": self.swarm.local_peer_id().to_string(),
+                    "timestamp": chrono::Utc::now().timestamp(),
+                    "immediate": true
+                });
+                
+                if let Ok(data) = serde_json::to_vec(&keep_alive_msg) {
+                    if let Err(e) = self.swarm.behaviour_mut().publish(
+                        gossipsub::IdentTopic::new("traindb-data"),
+                        data,
+                    ) {
+                        debug!("Failed to send immediate keep-alive: {}", e);
+                    } else {
+                        info!("📡 Sent immediate keep-alive to peer: {}", peer_id);
+                    }
+                }
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                 info!("❌ Disconnected from peer: {} (reason: {:?})", peer_id, cause);
+                
+                // If it's a timeout, try to reconnect after a delay
+                if format!("{:?}", cause).contains("KeepAliveTimeout") {
+                    warn!("⚠️ Connection to peer {} timed out (KeepAliveTimeout)", peer_id);
+                    // Note: We can't directly reconnect here as we don't have the original address
+                    // This would need to be handled by the discovery mechanism
+                }
             }
             SwarmEvent::Dialing { peer_id, .. } => {
                 debug!("🔄 Dialing peer: {:?}", peer_id);
@@ -273,12 +332,27 @@ impl TrainDBNode {
     
     async fn handle_gossipsub_message(&mut self, message: gossipsub::Message) {
         // Handle incoming messages from other peers
-        info!("📨 Received gossiped message from peer: {:?}", message.source);
-        debug!("Message content: {:?}", message);
+        debug!("📨 Received gossiped message from peer: {:?}", message.source);
         
         // Parse and process the message
         if let Ok(data) = serde_json::from_slice::<serde_json::Value>(&message.data) {
-            if let Some(op) = data.get("operation") {
+            if let Some(msg_type) = data.get("type") {
+                match msg_type.as_str() {
+                    Some("welcome") => {
+                        if let Some(peer_id) = data.get("peer_id") {
+                            info!("👋 Received welcome from peer: {}", peer_id);
+                        }
+                    }
+                    Some("keep_alive") => {
+                        if let Some(peer_id) = data.get("peer_id") {
+                            debug!("💓 Received keep-alive from peer: {}", peer_id);
+                        }
+                    }
+                    _ => {
+                        debug!("📨 Received message type: {}", msg_type);
+                    }
+                }
+            } else if let Some(op) = data.get("operation") {
                 match op.as_str() {
                     Some("set") => {
                         if let (Some(key), Some(value)) = (data.get("key"), data.get("value")) {
@@ -309,10 +383,10 @@ impl TrainDBNode {
                     }
                 }
             } else {
-                info!("🔄 Gossiping: Non-operation message: {:?}", data);
+                debug!("🔄 Gossiping: Non-operation message: {:?}", data);
             }
         } else {
-            info!("🔄 Gossiping: Non-JSON message: {:?}", String::from_utf8_lossy(&message.data));
+            debug!("🔄 Gossiping: Non-JSON message: {:?}", String::from_utf8_lossy(&message.data));
         }
     }
     

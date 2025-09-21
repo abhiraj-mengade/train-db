@@ -102,16 +102,29 @@ impl MultiTransport for BluetoothTransport {
                 while let Some(event) = events.next().await {
                     match event {
                         CentralEvent::DeviceDiscovered(device_id) => {
-                            debug!("Discovered device: {:?}", device_id);
+                            info!("🔵 Bluetooth discovered device: {:?}", device_id);
                             if let Ok(peripheral) = central.peripheral(&device_id).await {
                             if let Ok(properties) = peripheral.properties().await {
                                 if let Some(props) = properties {
                                     if let Some(name) = &props.local_name {
-                                        if name.contains("TrainDB") {
-                                            info!("Found TrainDB peer: {}", name);
+                                        info!("🔵 Device name: '{}' (ID: {:?})", name, device_id);
+                                        
+                                        // Look for TrainDB devices OR your specific devices
+                                        if name.contains("TrainDB") || 
+                                           name.contains("amengade_in-mac") || 
+                                           name.contains("Abhiraj Mengade's MacBook Air") ||
+                                           name.contains("MacBook") {
+                                            info!("🔵 ✅ Found potential TrainDB peer: {} (ID: {:?})", name, device_id);
                                             let mut devices = discovered_devices.lock().await;
                                             devices.insert(device_id.to_string(), peripheral);
+                                        } else {
+                                            info!("🔵 ⏭️ Skipping device: {} (not a TrainDB peer)", name);
                                         }
+                                    } else {
+                                        // Also consider devices without names (might be TrainDB nodes)
+                                        info!("🔵 Found unnamed device (ID: {:?}) - checking for TrainDB services", device_id);
+                                        let mut devices = discovered_devices.lock().await;
+                                        devices.insert(device_id.to_string(), peripheral);
                                     }
                                 }
                             }
@@ -171,13 +184,20 @@ impl MultiTransport for BluetoothTransport {
         #[cfg(feature = "bluetooth")]
         {
             let devices = self.discovered_devices.lock().await;
+            info!("🔵 Checking {} discovered devices for TrainDB peers", devices.len());
             let mut peers = Vec::new();
             
             for (device_id, peripheral) in devices.iter() {
                 if let Ok(properties) = peripheral.properties().await {
                     if let Some(props) = properties {
                         if let Some(name) = &props.local_name {
-                            if name.contains("TrainDB") {
+                            // Accept TrainDB devices or your specific devices
+                            if name.contains("TrainDB") || 
+                               name.contains("amengade_in-mac") || 
+                               name.contains("Abhiraj Mengade's MacBook Air") ||
+                               name.contains("MacBook") {
+                                info!("🔵 Processing discovered device: {} (ID: {:?})", name, device_id);
+                                
                                 // Extract peer ID from device name or properties
                                 // For now, we'll generate a deterministic peer ID from device ID
                                 let device_bytes = hex::decode(device_id.replace("-", "")).unwrap_or_default();
@@ -190,7 +210,25 @@ impl MultiTransport for BluetoothTransport {
                                     let libp2p_public_key = libp2p::identity::PublicKey::from(public_key);
                                     let peer_id = PeerId::from_public_key(&libp2p_public_key);
                                     peers.push(peer_id);
+                                    info!("🔵 Generated peer ID for device {}: {}", name, peer_id);
                                 }
+                            }
+                        } else {
+                            // Handle unnamed devices
+                            info!("🔵 Processing unnamed device (ID: {:?})", device_id);
+                            
+                            // Generate peer ID from device ID
+                            let device_bytes = hex::decode(device_id.replace("-", "")).unwrap_or_default();
+                            let mut key_bytes = [0u8; 32];
+                            for (i, &byte) in device_bytes.iter().take(32).enumerate() {
+                                key_bytes[i] = byte;
+                            }
+                            
+                            if let Ok(public_key) = libp2p::identity::ed25519::PublicKey::try_from_bytes(&key_bytes) {
+                                let libp2p_public_key = libp2p::identity::PublicKey::from(public_key);
+                                let peer_id = PeerId::from_public_key(&libp2p_public_key);
+                                peers.push(peer_id);
+                                info!("🔵 Generated peer ID for unnamed device: {}", peer_id);
                             }
                         }
                     }
