@@ -286,8 +286,12 @@ MIT License - see LICENSE file for details
 
 <img width="1285" height="682" alt="Screenshot 2025-09-22 at 4 33 06 AM" src="https://github.com/user-attachments/assets/aef7d76f-9fec-453c-91ae-d32195c7fa2b" />
 
+<img width="745" height="422" alt="Screenshot 2025-09-22 at 4 58 44 AM" src="https://github.com/user-attachments/assets/5c52112b-f7be-4d21-8d36-1e5717fb9373" />
+
+<img width="745" height="357" alt="Screenshot 2025-09-22 at 4 58 52 AM" src="https://github.com/user-attachments/assets/a48cf2da-fee6-40e9-8961-027251a7c343" />
 
 ---
+
 
 **Made with ❤️ for BlockTrain**
 
