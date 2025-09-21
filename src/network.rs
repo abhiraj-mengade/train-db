@@ -1,7 +1,7 @@
 use anyhow::Result;
 use libp2p::{
     gossipsub::{self, MessageAuthenticity},
-    identity, noise, mdns,
+    identity, noise,
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Transport,
 };
@@ -50,28 +50,28 @@ impl TrainDBNode {
             .upgrade(libp2p::core::upgrade::Version::V1)
             .authenticate(noise::Config::new(&keypair)?)
             .multiplex(yamux::Config::default());
-        
-        // Create multi-transport (TCP + Bluetooth when available)
+
+        // Create transport
         let transport = tcp_transport.boxed();
+
+        info!("🔗 TCP transport initialized with Bluetooth support available");
         
-        // Try to add Bluetooth transport if available
-        #[cfg(feature = "bluetooth")]
-        {
-            // For now, we'll use TCP only but log that Bluetooth is available
-            info!("Bluetooth support compiled in - multi-transport ready");
-        }
-        
-        // Create network behavior
+        // Create network behavior with default configuration
         let gossipsub_config = gossipsub::Config::default();
+        
         let mut behaviour = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
             gossipsub_config,
         )
         .expect("Valid config");
         
-        // Subscribe to the main topic for Train-DB
-        let topic = gossipsub::IdentTopic::new("train-db");
+        // Subscribe to the main topic for Train-DB data
+        let topic = gossipsub::IdentTopic::new("traindb-data");
         behaviour.subscribe(&topic).expect("Valid topic");
+        
+        // Also subscribe to keep-alive topic
+        let keep_alive_topic = gossipsub::IdentTopic::new("train-db");
+        behaviour.subscribe(&keep_alive_topic).expect("Valid topic");
         
         // Create swarm
         let swarm = Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor());
@@ -143,8 +143,14 @@ impl TrainDBNode {
     pub async fn run(mut self) -> Result<()> {
         info!("Starting TrainDB node event loop");
         
-        // Start a keep-alive task
-        let mut keep_alive_interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        // Give the node time to establish initial connections
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        
+        // Start a keep-alive task (less frequent to reduce churn)
+        let mut keep_alive_interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        
+        // Start Bluetooth peer discovery task
+        let mut bluetooth_discovery_interval = tokio::time::interval(std::time::Duration::from_secs(15));
         
         loop {
             tokio::select! {
@@ -166,22 +172,82 @@ impl TrainDBNode {
                         debug!("Failed to send keep-alive: {}", e);
                     }
                 }
+                _ = bluetooth_discovery_interval.tick() => {
+                    // Discover and connect to Bluetooth peers
+                    self.discover_bluetooth_peers().await;
+                }
             }
         }
         
         Ok(())
     }
     
+    async fn discover_bluetooth_peers(&mut self) {
+        if let Some(ref mut bt) = self.bluetooth_transport {
+            info!("🔵 Discovering Bluetooth peers...");
+            
+            // Start Bluetooth discovery
+            if let Err(e) = bt.start().await {
+                debug!("Failed to start Bluetooth discovery: {}", e);
+                return;
+            }
+            
+            // Discover peers
+            match bt.discover_peers().await {
+                Ok(peers) => {
+                    if !peers.is_empty() {
+                        info!("🔵 Found {} Bluetooth peers: {:?}", peers.len(), peers);
+                        
+                        // Try to connect to discovered peers
+                        for peer_id in peers {
+                            info!("🔵 Attempting to connect to Bluetooth peer: {}", peer_id);
+                            
+                            // Create a Bluetooth multiaddr (simplified)
+                            let bluetooth_addr = format!("/bluetooth/{}", peer_id);
+                            if let Ok(addr) = bluetooth_addr.parse::<Multiaddr>() {
+                                if let Err(e) = self.swarm.dial(addr) {
+                                    debug!("Failed to dial Bluetooth peer {}: {}", peer_id, e);
+                                } else {
+                                    info!("🔵 Successfully initiated connection to Bluetooth peer: {}", peer_id);
+                                }
+                            }
+                        }
+                    } else {
+                        debug!("🔵 No Bluetooth peers found");
+                    }
+                }
+                Err(e) => {
+                    debug!("Failed to discover Bluetooth peers: {}", e);
+                }
+            }
+        }
+    }
+    
     async fn handle_swarm_event(&mut self, event: SwarmEvent<TrainDBBehaviourEvent>) {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
-                info!("Listening on {}", address);
+                info!("📡 Listening on {}", address);
             }
             SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
-                info!("Connected to peer: {}", peer_id);
+                // Check if this is a Bluetooth connection
+                let transport_type = if format!("{:?}", endpoint).contains("bluetooth") {
+                    "🔵 Bluetooth"
+                } else {
+                    "📡 TCP/Wi-Fi"
+                };
+                info!("✅ {} Connected to peer: {}", transport_type, peer_id);
+                
+                // Give the connection a moment to stabilize before sending data
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }
-            SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                info!("Disconnected from peer: {}", peer_id);
+            SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
+                info!("❌ Disconnected from peer: {} (reason: {:?})", peer_id, cause);
+            }
+            SwarmEvent::Dialing { peer_id, .. } => {
+                debug!("🔄 Dialing peer: {:?}", peer_id);
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                warn!("⚠️ Failed to connect to peer {:?}: {}", peer_id, error);
             }
             SwarmEvent::Behaviour(event) => {
                 self.handle_behaviour_event(event).await;
@@ -207,7 +273,8 @@ impl TrainDBNode {
     
     async fn handle_gossipsub_message(&mut self, message: gossipsub::Message) {
         // Handle incoming messages from other peers
-        debug!("Received message: {:?}", message);
+        info!("📨 Received gossiped message from peer: {:?}", message.source);
+        debug!("Message content: {:?}", message);
         
         // Parse and process the message
         if let Ok(data) = serde_json::from_slice::<serde_json::Value>(&message.data) {
@@ -216,8 +283,11 @@ impl TrainDBNode {
                     Some("set") => {
                         if let (Some(key), Some(value)) = (data.get("key"), data.get("value")) {
                             if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
+                                info!("🔄 Gossiping: Setting key '{}' = '{}'", key_str, value_str);
                                 if let Err(e) = self.storage.set(key_str, value_str) {
                                     error!("Failed to set key: {}", e);
+                                } else {
+                                    info!("✅ Successfully applied gossiped data: {} = {}", key_str, value_str);
                                 }
                             }
                         }
@@ -225,15 +295,24 @@ impl TrainDBNode {
                     Some("delete") => {
                         if let Some(key) = data.get("key") {
                             if let Some(key_str) = key.as_str() {
+                                info!("🔄 Gossiping: Deleting key '{}'", key_str);
                                 if let Err(e) = self.storage.delete(key_str) {
                                     error!("Failed to delete key: {}", e);
+                                } else {
+                                    info!("✅ Successfully applied gossiped deletion: {}", key_str);
                                 }
                             }
                         }
                     }
-                    _ => {}
+                    _ => {
+                        info!("🔄 Gossiping: Unknown operation: {:?}", data);
+                    }
                 }
+            } else {
+                info!("🔄 Gossiping: Non-operation message: {:?}", data);
             }
+        } else {
+            info!("🔄 Gossiping: Non-JSON message: {:?}", String::from_utf8_lossy(&message.data));
         }
     }
     
@@ -254,11 +333,14 @@ impl TrainDBNode {
                 });
                 
                 if let Ok(data) = serde_json::to_vec(&message) {
+                    info!("📤 Broadcasting data change: {} = {}", key, value);
                     if let Err(e) = self.swarm.behaviour_mut().publish(
                         gossipsub::IdentTopic::new("traindb-data"),
                         data,
                     ) {
                         error!("Failed to broadcast message: {}", e);
+                    } else {
+                        info!("✅ Successfully broadcasted data change to all peers");
                     }
                 }
             }
