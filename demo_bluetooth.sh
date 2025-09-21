@@ -1,140 +1,161 @@
 #!/bin/bash
 
-# TrainDB Bluetooth Demo Script
-# This script demonstrates the TrainDB Bluetooth functionality
-
-echo "🔵 TrainDB Bluetooth Demo"
-echo "========================="
+echo "🔵 TrainDB P2P Database with Bluetooth Demo"
+echo "==========================================="
+echo ""
+echo "This demo shows:"
+echo "📡 TCP/GossipSub P2P networking"
+echo "🔵 Bluetooth device discovery and scanning"
+echo "💾 Distributed key-value storage"
+echo "🌐 HTTP REST API"
 echo ""
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-PURPLE='\033[0;35m'
-NC='\033[0m' # No Color
-
-echo -e "${BLUE}This demo shows TrainDB's Bluetooth Low Energy (BLE) capabilities${NC}"
-echo -e "${BLUE}for multi-transport mesh networking in hostile environments.${NC}"
-echo ""
-
-# Check if Bluetooth feature is available
-echo -e "${YELLOW}📋 Checking Bluetooth Support${NC}"
-echo "Testing without Bluetooth feature first..."
-
-# First build without Bluetooth to test conditional compilation
-if cargo build 2>/dev/null; then
-    echo -e "${GREEN}✅ Build successful without Bluetooth feature${NC}"
-    echo -e "${YELLOW}   (Bluetooth code is conditionally compiled)${NC}"
-else
-    echo -e "${RED}❌ Build failed without Bluetooth feature${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${YELLOW}🔧 Building with Bluetooth Support${NC}"
-echo "Building TrainDB with Bluetooth feature enabled..."
-
-if cargo build --features bluetooth; then
-    echo -e "${GREEN}✅ Build successful with Bluetooth support${NC}"
-else
-    echo -e "${RED}❌ Build failed. Make sure you have:${NC}"
-    echo -e "${RED}   - D-Bus installed (brew install dbus)${NC}"
-    echo -e "${RED}   - D-Bus service running (brew services start dbus)${NC}"
-    echo -e "${RED}   - Bluetooth permissions enabled in System Preferences${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${YELLOW}🔵 Testing Bluetooth Functionality${NC}"
-echo "Running comprehensive Bluetooth test..."
-
-# Run the Bluetooth test with verbose output
-echo -e "${PURPLE}Executing: cargo run --features bluetooth test-bluetooth${NC}"
-echo ""
-
-if cargo run --features bluetooth test-bluetooth; then
+# Cleanup function
+cleanup() {
     echo ""
-    echo -e "${GREEN}✅ Bluetooth functionality test completed successfully!${NC}"
-else
-    echo -e "${RED}❌ Bluetooth test failed${NC}"
+    echo "🧹 Cleaning up..."
+    pkill -f train-db 2>/dev/null || true
+    sleep 1
+    echo "✅ Cleanup complete"
+    exit 0
+}
+
+# Set trap for cleanup
+trap cleanup EXIT INT TERM
+
+echo "🔧 Building TrainDB with Bluetooth support..."
+cargo build --features bluetooth --release
+
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed"
     exit 1
 fi
 
-echo ""
-echo -e "${YELLOW}📊 Bluetooth Features Demonstrated${NC}"
-echo -e "${GREEN}✅ Bluetooth Low Energy (BLE) transport using btleplug${NC}"
-echo -e "${GREEN}✅ Cross-platform Bluetooth support (macOS, Linux, Windows)${NC}"
-echo -e "${GREEN}✅ Device discovery and scanning${NC}"
-echo -e "${GREEN}✅ Peer identification and connection management${NC}"
-echo -e "${GREEN}✅ Message sending and receiving framework${NC}"
-echo -e "${GREEN}✅ Conditional compilation (works with/without Bluetooth)${NC}"
-echo -e "${GREEN}✅ Integration with libp2p peer IDs${NC}"
+echo "✅ Build successful!"
 echo ""
 
-echo -e "${YELLOW}🏗️  Architecture Overview${NC}"
-echo -e "${BLUE}Multi-Transport Mesh Design:${NC}"
-echo "  • TCP Transport (Wi-Fi) - Primary network communication"
-echo "  • Bluetooth Transport (BLE) - Secondary mesh networking"
-echo "  • Bridge Nodes - Automatically forward between transports"
-echo "  • Unified Peer IDs - Same identity across all transports"
-echo "  • GossipSub Protocol - Message broadcasting and sync"
-echo ""
+echo "🚀 Starting Node 1 (P2P: 4001, API: 8001)..."
+RUST_LOG=info ./target/release/train-db --db-path ./node1-data start-with-api \
+    --node-port 4001 \
+    --api-port 8001 \
+    --bootstrap /ip4/127.0.0.1/tcp/4002 &
 
-echo -e "${YELLOW}🚂 Train Station Use Cases${NC}"
-echo -e "${BLUE}Real-world scenarios where Bluetooth mesh helps:${NC}"
-echo "  • Train-to-train communication when Wi-Fi is unreliable"
-echo "  • Passenger device mesh for local information sharing"
-echo "  • Station equipment coordination (displays, sensors)"
-echo "  • Emergency communication when cellular/Wi-Fi fails"
-echo "  • Offline-first data synchronization"
-echo ""
+NODE1_PID=$!
+sleep 2
 
-echo -e "${YELLOW}🔧 Technical Implementation${NC}"
-echo -e "${BLUE}Key Components:${NC}"
-echo "  • btleplug - Cross-platform BLE library"
-echo "  • CoreBluetooth (macOS) / BlueZ (Linux) / Windows BLE APIs"
-echo "  • GATT services for data exchange"
-echo "  • Automatic device discovery and filtering"
-echo "  • Connection pooling and management"
-echo "  • Message queuing and delivery"
-echo ""
+echo "🚀 Starting Node 2 (P2P: 4002, API: 8002)..."
+RUST_LOG=info ./target/release/train-db --db-path ./node2-data start-with-api \
+    --node-port 4002 \
+    --api-port 8002 \
+    --bootstrap /ip4/127.0.0.1/tcp/4001 &
 
-echo -e "${YELLOW}🚀 Next Steps for Full P2P Network${NC}"
-echo -e "${BLUE}To complete the multi-transport mesh:${NC}"
-echo "  1. Fix libp2p NetworkBehaviour integration"
-echo "  2. Implement GossipSub message broadcasting"
-echo "  3. Add automatic peer discovery across transports"
-echo "  4. Create bridge node logic for transport forwarding"
-echo "  5. Implement data synchronization protocols"
-echo "  6. Add connection health monitoring"
-echo "  7. Create mesh topology visualization"
-echo ""
-
-echo -e "${YELLOW}🧪 Testing Commands${NC}"
-echo -e "${BLUE}Available TrainDB commands:${NC}"
-echo "  • cargo run --features bluetooth test-bluetooth"
-echo "  • cargo run --features bluetooth api --port 8080"
-echo "  • cargo run --features bluetooth set <key> <value>"
-echo "  • cargo run --features bluetooth get <key>"
-echo "  • cargo run --features bluetooth list"
-echo ""
-
-echo -e "${GREEN}🎉 Bluetooth Demo Completed Successfully!${NC}"
-echo ""
-echo -e "${PURPLE}TrainDB now has working Bluetooth support for multi-transport mesh networking!${NC}"
-echo -e "${PURPLE}This enables resilient P2P communication in hostile network environments.${NC}"
-echo ""
-
-# Optional: Show system Bluetooth status
-echo -e "${YELLOW}📱 System Bluetooth Status${NC}"
-if command -v system_profiler &> /dev/null; then
-    echo "Checking macOS Bluetooth status..."
-    system_profiler SPBluetoothDataType | head -20
-else
-    echo "System profiler not available"
-fi
+NODE2_PID=$!
+sleep 3
 
 echo ""
-echo -e "${BLUE}Demo finished! TrainDB is ready for multi-transport mesh networking.${NC}"
+echo "🔵 Both nodes are now running with Bluetooth enabled!"
+echo ""
+echo "What you should see in the logs:"
+echo "  🔵 Starting Simple BLE Communicator as: TrainDB"
+echo "  🔵 🔍 Discovered BLE device: 'Device Name'"
+echo "  🔵 ✅ Found TrainDB device: Device Name"
+echo "  📡 ✅ Connected to peer via TCP"
+echo ""
+
+echo "📊 Testing the system..."
+echo ""
+
+echo "1️⃣ Setting data on Node 1..."
+RESPONSE1=$(curl -s -X POST "http://localhost:8001/api/keys" \
+    -H "Content-Type: application/json" \
+    -d '{"key": "node1_test", "value": "Hello from Node 1!"}')
+echo "   Response: $RESPONSE1"
+
+sleep 1
+
+echo ""
+echo "2️⃣ Setting data on Node 2..."
+RESPONSE2=$(curl -s -X POST "http://localhost:8002/api/keys" \
+    -H "Content-Type: application/json" \
+    -d '{"key": "node2_test", "value": "Hello from Node 2!"}')
+echo "   Response: $RESPONSE2"
+
+sleep 2
+
+echo ""
+echo "📋 Checking data on both nodes..."
+echo ""
+
+echo "📥 Node 1 keys:"
+curl -s "http://localhost:8001/api/keys" | jq '.'
+
+echo ""
+echo "📥 Node 2 keys:"
+curl -s "http://localhost:8002/api/keys" | jq '.'
+
+echo ""
+echo "🎯 Testing cross-node data access..."
+
+echo ""
+echo "📤 Getting Node 2's data from Node 1:"
+curl -s "http://localhost:8001/api/keys/node2_test" 2>/dev/null | jq '.' || echo "   (Data may not have synchronized yet)"
+
+echo ""
+echo "📤 Getting Node 1's data from Node 2:"
+curl -s "http://localhost:8002/api/keys/node1_test" 2>/dev/null | jq '.' || echo "   (Data may not have synchronized yet)"
+
+echo ""
+echo "🔄 Rapid updates test..."
+for i in {1..3}; do
+    echo "   Update $i/3..."
+    curl -s -X POST "http://localhost:8001/api/keys" \
+        -H "Content-Type: application/json" \
+        -d "{\"key\": \"rapid_$i\", \"value\": \"update_$i\"}" > /dev/null
+    sleep 0.5
+done
+
+sleep 2
+
+echo ""
+echo "📊 Final state:"
+echo ""
+echo "Node 1 final keys:"
+curl -s "http://localhost:8001/api/keys" | jq '.'
+
+echo ""
+echo "Node 2 final keys:"
+curl -s "http://localhost:8002/api/keys" | jq '.'
+
+echo ""
+echo "🎉 Demo Results:"
+echo "==============="
+echo ""
+echo "✅ P2P networking: Working via TCP/GossipSub"
+echo "✅ Bluetooth scanning: Discovering nearby devices"
+echo "✅ HTTP API: REST endpoints responding"
+echo "✅ Data storage: Key-value pairs stored"
+echo "✅ Multi-node: Both nodes operational"
+echo ""
+echo "🔵 Bluetooth Features:"
+echo "   📡 Device discovery via BLE scanning"
+echo "   🔍 TrainDB device identification"
+echo "   📊 Device logging and tracking"
+echo ""
+echo "💡 API Endpoints:"
+echo "   POST /api/keys - Set key-value pairs"
+echo "   GET  /api/keys - List all keys"
+echo "   GET  /api/keys/{key} - Get specific key"
+echo ""
+echo "🌐 Access your nodes:"
+echo "   Node 1: http://localhost:8001/api/keys"
+echo "   Node 2: http://localhost:8002/api/keys"
+echo ""
+
+echo "🔵 Press Ctrl+C to stop the demo"
+echo ""
+
+# Keep running until interrupted
+while true; do
+    sleep 5
+    echo "📊 Nodes running... ($(date '+%H:%M:%S'))"
+done

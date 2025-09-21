@@ -3,3 +3,6 @@ data2
 target
 test-data
 demo-*
+test-*
+node1-*
+node2-*
