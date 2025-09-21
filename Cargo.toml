@@ -46,8 +46,9 @@ chrono = { version = "0.4", features = ["serde"] }
 dashmap = "5.0"
 
 # Bluetooth support (optional)
-btleplug = { version = "0.12", optional = true }
+btleplug = { version = "0.11", optional = true }
 hex = "0.4"
+fastrand = "2.0"
 async-trait = "0.1"
 futures = "0.3"
 

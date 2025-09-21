@@ -104,8 +104,9 @@ impl MultiTransport for BluetoothTransport {
                         CentralEvent::DeviceDiscovered(device_id) => {
                             debug!("Discovered device: {:?}", device_id);
                             if let Ok(peripheral) = central.peripheral(&device_id).await {
-                                if let Ok(properties) = peripheral.properties().await {
-                                    if let Some(name) = properties.local_name {
+                            if let Ok(properties) = peripheral.properties().await {
+                                if let Some(props) = properties {
+                                    if let Some(name) = &props.local_name {
                                         if name.contains("TrainDB") {
                                             info!("Found TrainDB peer: {}", name);
                                             let mut devices = discovered_devices.lock().await;
@@ -113,6 +114,7 @@ impl MultiTransport for BluetoothTransport {
                                         }
                                     }
                                 }
+                            }
                             }
                         }
                         CentralEvent::DeviceConnected(device_id) => {
@@ -173,22 +175,23 @@ impl MultiTransport for BluetoothTransport {
             
             for (device_id, peripheral) in devices.iter() {
                 if let Ok(properties) = peripheral.properties().await {
-                    if let Some(name) = properties.local_name {
-                        if name.contains("TrainDB") {
-                            // Extract peer ID from device name or properties
-                            // For now, we'll generate a deterministic peer ID from device ID
-                            let peer_id = PeerId::from_public_key(
-                                libp2p::identity::PublicKey::Ed25519(
-                                    libp2p::identity::ed25519::PublicKey::decode(
-                                        &hex::decode(device_id.replace("-", "")).unwrap_or_default()
-                                    ).unwrap_or_else(|_| {
-                                        libp2p::identity::ed25519::PublicKey::decode(
-                                            &[0u8; 32]
-                                        ).unwrap()
-                                    })
-                                )
-                            );
-                            peers.push(peer_id);
+                    if let Some(props) = properties {
+                        if let Some(name) = &props.local_name {
+                            if name.contains("TrainDB") {
+                                // Extract peer ID from device name or properties
+                                // For now, we'll generate a deterministic peer ID from device ID
+                                let device_bytes = hex::decode(device_id.replace("-", "")).unwrap_or_default();
+                                let mut key_bytes = [0u8; 32];
+                                for (i, &byte) in device_bytes.iter().take(32).enumerate() {
+                                    key_bytes[i] = byte;
+                                }
+                                
+                                if let Ok(public_key) = libp2p::identity::ed25519::PublicKey::try_from_bytes(&key_bytes) {
+                                    let libp2p_public_key = libp2p::identity::PublicKey::from(public_key);
+                                    let peer_id = PeerId::from_public_key(&libp2p_public_key);
+                                    peers.push(peer_id);
+                                }
+                            }
                         }
                     }
                 }
@@ -210,15 +213,17 @@ impl MultiTransport for BluetoothTransport {
             let devices = self.discovered_devices.lock().await;
             for (device_id, peripheral) in devices.iter() {
                 if let Ok(properties) = peripheral.properties().await {
-                    if let Some(name) = properties.local_name {
-                        if name.contains("TrainDB") {
-                            // Try to connect
-                            if let Err(e) = peripheral.connect().await {
-                                error!("Failed to connect to device {}: {}", device_id, e);
-                            } else {
-                                info!("Connected to TrainDB peer: {}", name);
-                                let mut peers = self.connected_peers.lock().await;
-                                peers.insert(peer_id, peripheral.clone());
+                    if let Some(props) = properties {
+                        if let Some(name) = &props.local_name {
+                            if name.contains("TrainDB") {
+                                // Try to connect
+                                if let Err(e) = peripheral.connect().await {
+                                    error!("Failed to connect to device {}: {}", device_id, e);
+                                } else {
+                                    info!("Connected to TrainDB peer: {}", name);
+                                    let mut peers = self.connected_peers.lock().await;
+                                    peers.insert(peer_id, peripheral.clone());
+                                }
                             }
                         }
                     }
@@ -238,7 +243,7 @@ impl MultiTransport for BluetoothTransport {
         #[cfg(feature = "bluetooth")]
         {
             let peers = self.connected_peers.lock().await;
-            if let Some(peripheral) = peers.get(&peer_id) {
+            if let Some(_peripheral) = peers.get(&peer_id) {
                 // Send message via GATT characteristic
                 // This is a simplified implementation
                 info!("Sending message to peer {}: {} bytes", peer_id, message.len());
@@ -297,16 +302,16 @@ impl BluetoothDiscovery {
         Ok(())
     }
     
-    pub fn get_discovered_peers(&self) -> &HashMap<String, String> {
+    pub async fn get_discovered_peers(&self) -> HashMap<String, String> {
         #[cfg(feature = "bluetooth")]
         {
             // This would need to be async in a real implementation
-            &HashMap::new()
+            HashMap::new()
         }
         
         #[cfg(not(feature = "bluetooth"))]
         {
-            &HashMap::new()
+            HashMap::new()
         }
     }
 }
@@ -359,16 +364,16 @@ impl BluetoothConnectionManager {
         Ok(())
     }
     
-    pub fn get_connections(&self) -> &HashMap<String, String> {
+    pub async fn get_connections(&self) -> HashMap<String, String> {
         #[cfg(feature = "bluetooth")]
         {
             // This would need to be async in a real implementation
-            &HashMap::new()
+            HashMap::new()
         }
         
         #[cfg(not(feature = "bluetooth"))]
         {
-            &HashMap::new()
+            HashMap::new()
         }
     }
 }
