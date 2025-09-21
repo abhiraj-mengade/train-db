@@ -284,6 +284,9 @@ RUST_LOG=debug cargo run --features bluetooth
 
 MIT License - see LICENSE file for details
 
+<img width="1285" height="682" alt="Screenshot 2025-09-22 at 4 33 06 AM" src="https://github.com/user-attachments/assets/aef7d76f-9fec-453c-91ae-d32195c7fa2b" />
+
+
 ---
 
 **Made with ❤️ for BlockTrain**
