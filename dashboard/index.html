@@ -13,9 +13,9 @@
 
         body {
             font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            background: #1a1a1a;
             min-height: 100vh;
-            color: #f1f5f9;
+            color: #e5e5e5;
         }
 
         .container {
@@ -33,11 +33,8 @@
         .header h1 {
             font-size: 3rem;
             margin-bottom: 15px;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 700;
+            color: #ffffff;
+            font-weight: 600;
             letter-spacing: -0.02em;
         }
 
@@ -56,36 +53,35 @@
         }
 
         .card {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
+            background: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease;
         }
 
         .card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            border-color: #555555;
         }
 
         .card h3 {
-            color: #f1f5f9;
-            margin-bottom: 20px;
-            font-size: 1.4rem;
-            font-weight: 600;
-            border-bottom: 2px solid rgba(59, 130, 246, 0.3);
-            padding-bottom: 12px;
+            color: #ffffff;
+            margin-bottom: 16px;
+            font-size: 1.3rem;
+            font-weight: 500;
+            border-bottom: 1px solid #404040;
+            padding-bottom: 8px;
         }
 
         .stat-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 8px 0;
+            border-bottom: 1px solid #333333;
         }
 
         .stat-item:last-child {
@@ -93,13 +89,13 @@
         }
 
         .stat-label {
-            font-weight: 500;
-            color: #94a3b8;
+            font-weight: 400;
+            color: #999999;
         }
 
         .stat-value {
-            font-weight: 600;
-            color: #f1f5f9;
+            font-weight: 500;
+            color: #ffffff;
         }
 
         .status-indicator {
@@ -111,19 +107,11 @@
         }
 
         .status-online {
-            background-color: #10b981;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
-            animation: pulse-green 2s infinite;
+            background-color: #22c55e;
         }
 
         .status-offline {
             background-color: #ef4444;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
-        }
-
-        @keyframes pulse-green {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
         }
 
         .peer-list {
@@ -134,39 +122,39 @@
         .peer-item {
             display: flex;
             align-items: center;
-            padding: 15px;
-            margin: 8px 0;
-            background: rgba(51, 65, 85, 0.5);
-            border-radius: 12px;
-            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin: 6px 0;
+            background: #333333;
+            border-radius: 8px;
+            border-left: 3px solid #666666;
             transition: all 0.2s ease;
         }
 
         .peer-item:hover {
-            background: rgba(51, 65, 85, 0.7);
-            transform: translateX(5px);
+            background: #404040;
+            border-left-color: #888888;
         }
 
         .peer-id {
             font-family: 'JetBrains Mono', 'Courier New', monospace;
-            font-size: 0.9rem;
-            color: #cbd5e1;
+            font-size: 0.85rem;
+            color: #cccccc;
         }
 
         .activity-log {
             max-height: 300px;
             overflow-y: auto;
-            background: rgba(51, 65, 85, 0.3);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid rgba(148, 163, 184, 0.1);
+            background: #333333;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #404040;
         }
 
         .activity-item {
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-            font-size: 0.9rem;
-            color: #cbd5e1;
+            padding: 8px 0;
+            border-bottom: 1px solid #404040;
+            font-size: 0.85rem;
+            color: #cccccc;
         }
 
         .activity-item:last-child {
@@ -174,48 +162,105 @@
         }
 
         .activity-time {
-            color: #64748b;
-            font-size: 0.8rem;
+            color: #888888;
+            font-size: 0.75rem;
         }
 
         .refresh-btn {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+            background: #404040;
             color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 12px;
+            border: 1px solid #555555;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            margin: 30px auto;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin: 20px auto;
             display: block;
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
         }
 
         .refresh-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 35px rgba(59, 130, 246, 0.4);
+            background: #555555;
+            border-color: #666666;
         }
 
         .refresh-btn:active {
-            transform: translateY(0);
+            background: #333333;
         }
 
         .loading {
             text-align: center;
-            color: #94a3b8;
+            color: #888888;
             font-style: italic;
-            padding: 20px;
+            padding: 16px;
         }
 
         .error {
-            color: #fca5a5;
-            background: rgba(239, 68, 68, 0.1);
-            padding: 15px;
-            border-radius: 12px;
-            border-left: 4px solid #ef4444;
-            margin: 10px 0;
+            color: #ff6b6b;
+            background: #2a1a1a;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #ef4444;
+            margin: 8px 0;
+        }
+
+        .database-summary {
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #404040;
+        }
+
+        .key-value-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .key-value-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 6px 0;
+            background: #333333;
+            border-radius: 8px;
+            border-left: 3px solid #666666;
+            transition: all 0.2s ease;
+        }
+
+        .key-value-item:hover {
+            background: #404040;
+            border-left-color: #888888;
+        }
+
+        .key-value-key {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #ffffff;
+            font-weight: 500;
+            flex: 1;
+            margin-right: 16px;
+        }
+
+        .key-value-value {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #cccccc;
+            background: #2a2a2a;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #404040;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .no-keys {
+            text-align: center;
+            color: #888888;
+            font-style: italic;
+            padding: 20px;
         }
 
         @media (max-width: 768px) {
@@ -267,6 +312,14 @@
                 </div>
             </div>
 
+            <!-- Database Keys -->
+            <div class="card">
+                <h3>🗄️ Database Keys</h3>
+                <div id="database-keys">
+                    <div class="loading">Loading database keys...</div>
+                </div>
+            </div>
+
             <!-- Recent Activity -->
             <div class="card">
                 <h3>📝 Recent Activity</h3>
@@ -293,6 +346,9 @@
                 updatePeers(data.peers);
                 updateNetworkStatus(data.node_stats);
                 updateActivityLog(data.recent_activity);
+                
+                // Also fetch database keys
+                fetchDatabaseKeys();
                 
             } catch (error) {
                 console.error('Failed to fetch dashboard data:', error);
@@ -431,6 +487,53 @@
             setTimeout(() => {
                 errorDiv.remove();
             }, 5000);
+        }
+
+        async function fetchDatabaseKeys() {
+            try {
+                const response = await fetch('/api/keys');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                updateDatabaseKeys(data);
+                
+            } catch (error) {
+                console.error('Failed to fetch database keys:', error);
+                document.getElementById('database-keys').innerHTML = 
+                    `<div class="error">Failed to load database keys: ${error.message}</div>`;
+            }
+        }
+
+        function updateDatabaseKeys(data) {
+            const container = document.getElementById('database-keys');
+            
+            if (data.keys && data.keys.length > 0) {
+                const keysHtml = data.keys.map(kv => `
+                    <div class="key-value-item">
+                        <div class="key-value-key">${kv.key}</div>
+                        <div class="key-value-value">${kv.value}</div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = `
+                    <div class="database-summary">
+                        <span class="stat-label">Total Keys: ${data.total_count}</span>
+                    </div>
+                    <div class="key-value-list">
+                        ${keysHtml}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="database-summary">
+                        <span class="stat-label">Total Keys: 0</span>
+                    </div>
+                    <div class="no-keys">No keys found in database</div>
+                `;
+            }
         }
 
         function refreshDashboard() {

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
@@ -29,6 +28,13 @@ pub struct PeerInfo {
     pub is_connected: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct NetworkState {
+    pub connected_peers: Vec<PeerInfo>,
+    pub listen_addresses: Vec<String>,
+    pub peer_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardData {
     pub node_stats: NodeStats,
@@ -42,6 +48,7 @@ pub struct Dashboard {
     messages_sent: Arc<Mutex<u64>>,
     messages_received: Arc<Mutex<u64>>,
     recent_activity: Arc<Mutex<Vec<String>>>,
+    network_state: Arc<Mutex<NetworkState>>,
 }
 
 impl Dashboard {
@@ -52,6 +59,11 @@ impl Dashboard {
             messages_sent: Arc::new(Mutex::new(0)),
             messages_received: Arc::new(Mutex::new(0)),
             recent_activity: Arc::new(Mutex::new(Vec::new())),
+            network_state: Arc::new(Mutex::new(NetworkState {
+                connected_peers: Vec::new(),
+                listen_addresses: Vec::new(),
+                peer_id: String::new(),
+            })),
         }
     }
 
@@ -77,6 +89,28 @@ impl Dashboard {
         }
     }
 
+    pub fn update_network_state(&self, peer_id: String, listen_addresses: Vec<String>) {
+        if let Ok(mut state) = self.network_state.try_lock() {
+            state.peer_id = peer_id;
+            state.listen_addresses = listen_addresses;
+        }
+    }
+
+    pub fn add_peer(&self, peer: PeerInfo) {
+        if let Ok(mut state) = self.network_state.try_lock() {
+            // Remove existing peer if present
+            state.connected_peers.retain(|p| p.peer_id != peer.peer_id);
+            // Add new peer
+            state.connected_peers.push(peer);
+        }
+    }
+
+    pub fn remove_peer(&self, peer_id: &str) {
+        if let Ok(mut state) = self.network_state.try_lock() {
+            state.connected_peers.retain(|p| p.peer_id != peer_id);
+        }
+    }
+
     async fn get_node_stats(&self, peer_id: String, listen_addresses: Vec<String>) -> Result<NodeStats> {
         let total_keys = {
             let storage = self.storage.lock().await;
@@ -87,10 +121,16 @@ impl Dashboard {
         let messages_sent = *self.messages_sent.lock().await;
         let messages_received = *self.messages_received.lock().await;
 
+        // Get actual connected peers from network state
+        let connected_peers = {
+            let state = self.network_state.lock().await;
+            state.connected_peers.iter().map(|p| p.peer_id.clone()).collect()
+        };
+
         Ok(NodeStats {
             peer_id,
             listen_addresses,
-            connected_peers: vec![], // TODO: Get from swarm
+            connected_peers,
             total_keys,
             bluetooth_enabled: cfg!(feature = "bluetooth"),
             uptime_seconds: uptime,
@@ -103,31 +143,14 @@ impl Dashboard {
     async fn get_dashboard_data(&self, peer_id: String, listen_addresses: Vec<String>) -> Result<DashboardData> {
         let node_stats = self.get_node_stats(peer_id, listen_addresses).await?;
         
-        // Generate some demo peers for demonstration
-        let peers = vec![
-            PeerInfo {
-                peer_id: "12D3KooWPeer1Demo123456789".to_string(),
-                transport: "Wi-Fi".to_string(),
-                last_seen: chrono::Utc::now().to_rfc3339(),
-                is_connected: true,
-            },
-            PeerInfo {
-                peer_id: "12D3KooWPeer2Demo987654321".to_string(),
-                transport: "Bluetooth".to_string(),
-                last_seen: chrono::Utc::now().to_rfc3339(),
-                is_connected: true,
-            },
-        ];
+        // Get actual peers from the network state
+        let peers = {
+            let network_state = self.network_state.lock().await;
+            network_state.connected_peers.clone()
+        };
         
         let recent_activity = {
-            let mut activities = self.recent_activity.lock().await;
-            // Add some demo activities if empty
-            if activities.is_empty() {
-                activities.push("Node started successfully".to_string());
-                activities.push("Bluetooth transport initialized".to_string());
-                activities.push("Listening on TCP port 8082".to_string());
-                activities.push("Peer discovery started".to_string());
-            }
+            let activities = self.recent_activity.lock().await;
             activities.clone()
         };
 
@@ -136,6 +159,26 @@ impl Dashboard {
             peers,
             recent_activity,
         })
+    }
+
+    async fn get_database_keys(&self) -> Result<serde_json::Value> {
+        let storage = self.storage.lock().await;
+        let keys = storage.list_keys()?;
+        
+        let mut key_values = Vec::new();
+        for key in keys {
+            if let Ok(value) = storage.get(&key) {
+                key_values.push(serde_json::json!({
+                    "key": key,
+                    "value": value
+                }));
+            }
+        }
+        
+        Ok(serde_json::json!({
+            "keys": key_values,
+            "total_count": key_values.len()
+        }))
     }
 
     pub fn create_routes(
@@ -189,9 +232,26 @@ impl Dashboard {
                 }
             });
 
+        // Database keys endpoint
+        let database_keys = warp::path("api")
+            .and(warp::path("keys"))
+            .and(warp::get())
+            .and_then(move || {
+                let dashboard = self.clone();
+                async move {
+                    match dashboard.get_database_keys().await {
+                        Ok(keys) => Ok::<_, warp::Rejection>(warp::reply::json(&keys)),
+                        Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                            "error": e.to_string()
+                        }))),
+                    }
+                }
+            });
+
         // Combine all routes
         dashboard_html
             .or(dashboard_data)
             .or(node_stats)
+            .or(database_keys)
     }
 }

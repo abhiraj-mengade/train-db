@@ -1,8 +1,8 @@
-warning: unused imports: `error` and `warn`
+warning: unused import: `error`
  --> src/main.rs:6:21
   |
 6 | use tracing::{info, error, warn};
-  |                     ^^^^^  ^^^^
+  |                     ^^^^^
   |
   = note: `#[warn(unused_imports)]` on by default
 
@@ -11,22 +11,6 @@ warning: unused import: `error`
   |
 5 | use tracing::{info, warn, error, debug};
   |                           ^^^^^
-
-warning: unused import: `std::collections::HashMap`
- --> src/dashboard.rs:3:5
-  |
-3 | use std::collections::HashMap;
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-
-warning: variable does not need to be mutable
-  --> src/network.rs:54:13
-   |
-54 |         let mut transport = tcp_transport.boxed();
-   |             ----^^^^^^^^^
-   |             |
-   |             help: remove this `mut`
-   |
-   = note: `#[warn(unused_mut)]` on by default
 
 warning: unused variable: `bt`
    --> src/mesh_node.rs:125:29
@@ -37,70 +21,72 @@ warning: unused variable: `bt`
     = note: `#[warn(unused_variables)]` on by default
 
 warning: unused variable: `conn_manager`
-   --> src/main.rs:257:17
+   --> src/main.rs:272:17
     |
-257 |         let mut conn_manager = BluetoothConnectionManager::new()?;
+272 |         let mut conn_manager = BluetoothConnectionManager::new()?;
     |                 ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_conn_manager`
 
 warning: unused variable: `msg_handler`
-   --> src/main.rs:262:13
+   --> src/main.rs:277:13
     |
-262 |         let msg_handler = BluetoothMessageHandler::new();
+277 |         let msg_handler = BluetoothMessageHandler::new();
     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_msg_handler`
 
 warning: variable does not need to be mutable
-   --> src/main.rs:257:13
+   --> src/main.rs:272:13
     |
-257 |         let mut conn_manager = BluetoothConnectionManager::new()?;
+272 |         let mut conn_manager = BluetoothConnectionManager::new()?;
     |             ----^^^^^^^^^^^^
     |             |
     |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
 
 warning: field `command_sender` is never read
-  --> src/network.rs:28:5
+  --> src/network.rs:30:5
    |
-24 | pub struct TrainDBNode {
+26 | pub struct TrainDBNode {
    |            ----------- field in this struct
 ...
-28 |     command_sender: mpsc::UnboundedSender<NetworkCommand>,
+30 |     command_sender: mpsc::UnboundedSender<NetworkCommand>,
    |     ^^^^^^^^^^^^^^
    |
    = note: `#[warn(dead_code)]` on by default
 
 warning: variants `SetKey`, `GetKey`, `DeleteKey`, `ListKeys`, and `BroadcastMessage` are never constructed
-  --> src/network.rs:34:5
+  --> src/network.rs:37:5
    |
-33 | pub enum NetworkCommand {
+36 | pub enum NetworkCommand {
    |          -------------- variants in this enum
-34 |     SetKey { key: String, value: String },
+37 |     SetKey { key: String, value: String },
    |     ^^^^^^
-35 |     GetKey { key: String },
+38 |     GetKey { key: String },
    |     ^^^^^^
-36 |     DeleteKey { key: String },
+39 |     DeleteKey { key: String },
    |     ^^^^^^^^^
-37 |     ListKeys,
+40 |     ListKeys,
    |     ^^^^^^^^
-38 |     BroadcastMessage { message: Vec<u8> },
+41 |     BroadcastMessage { message: Vec<u8> },
    |     ^^^^^^^^^^^^^^^^
    |
    = note: `NetworkCommand` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
 
 warning: methods `peer_id`, `listen_addresses`, `add_bootstrap_peer`, and `get_command_sender` are never used
-   --> src/network.rs:114:12
+   --> src/network.rs:123:12
     |
-41  | impl TrainDBNode {
+44  | impl TrainDBNode {
     | ---------------- methods in this implementation
 ...
-114 |     pub fn peer_id(&self) -> PeerId {
+123 |     pub fn peer_id(&self) -> PeerId {
     |            ^^^^^^^
 ...
-118 |     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
+135 |     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
     |            ^^^^^^^^^^^^^^^^
 ...
-122 |     pub async fn add_bootstrap_peer(&mut self, addr: &str) -> Result<()> {
+139 |     pub async fn add_bootstrap_peer(&mut self, addr: &str) -> Result<()> {
     |                  ^^^^^^^^^^^^^^^^^^
 ...
-295 |     pub fn get_command_sender(&self) -> mpsc::UnboundedSender<NetworkCommand> {
+347 |     pub fn get_command_sender(&self) -> mpsc::UnboundedSender<NetworkCommand> {
     |            ^^^^^^^^^^^^^^^^^^
 
 warning: method `exists` is never used
@@ -253,25 +239,34 @@ warning: associated items `update_bluetooth_peers`, `send_message`, and `send_vi
 286 |     async fn send_via_wifi(&self, _peer_id: PeerId, _message: Vec<u8>) -> Result<()> {
     |              ^^^^^^^^^^^^^
 
-warning: methods `increment_messages_sent`, `increment_messages_received`, and `add_activity` are never used
-  --> src/dashboard.rs:58:12
+warning: methods `increment_messages_sent` and `increment_messages_received` are never used
+  --> src/dashboard.rs:70:12
    |
-47 | impl Dashboard {
+54 | impl Dashboard {
    | -------------- methods in this implementation
 ...
-58 |     pub fn increment_messages_sent(&self) {
+70 |     pub fn increment_messages_sent(&self) {
    |            ^^^^^^^^^^^^^^^^^^^^^^^
 ...
-64 |     pub fn increment_messages_received(&self) {
+76 |     pub fn increment_messages_received(&self) {
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-...
-70 |     pub fn add_activity(&self, activity: String) {
-   |            ^^^^^^^^^^^^
 
-warning: `train-db` (bin "train-db") generated 25 warnings (run `cargo fix --bin "train-db"` to apply 5 suggestions)
+warning: `train-db` (bin "train-db") generated 23 warnings (run `cargo fix --bin "train-db"` to apply 3 suggestions)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
-     Running `target/debug/train-db --db-path ./demo-data-1 dashboard --port 3000`
-2025-09-21T17:51:35.107266Z  INFO train_db: Starting Train-DB P2P Node
-2025-09-21T17:51:35.107474Z  INFO train_db: Starting Train-DB Dashboard on port 3000
-2025-09-21T17:51:35.114368Z  INFO train_db: 🌐 Dashboard available at: http://localhost:3000
-2025-09-21T17:51:35.114379Z  INFO train_db: 📊 Monitor your Train-DB node in real-time!
+     Running `target/debug/train-db --db-path ./demo-dashboard node-with-dashboard --node-port 8082 --dashboard-port 3000`
+2025-09-21T18:41:11.916505Z  INFO train_db: Starting Train-DB P2P Node
+2025-09-21T18:41:11.916763Z  INFO train_db: Starting Train-DB Node with Dashboard
+2025-09-21T18:41:11.916796Z  INFO train_db: P2P Node port: 8082
+2025-09-21T18:41:11.916813Z  INFO train_db: Dashboard port: 3000
+2025-09-21T18:41:11.927177Z  INFO train_db::network: Bluetooth support compiled in - multi-transport ready
+2025-09-21T18:41:11.928005Z  INFO libp2p_swarm: local_peer_id=12D3KooWHGe4uhxSKCnRxg77NPv6RKECTY3CFeJXTcDH7uRqbeZi
+2025-09-21T18:41:11.928234Z  INFO train_db::network: Bluetooth transport initialized
+2025-09-21T18:41:11.928671Z  INFO train_db::bluetooth: Starting Bluetooth transport with btleplug...
+2025-09-21T18:41:11.981080Z  INFO train_db::bluetooth: Bluetooth transport started successfully
+2025-09-21T18:41:11.981136Z  INFO train_db::bluetooth: Scanning for TrainDB peers...
+2025-09-21T18:41:11.981408Z  INFO train_db: 🚀 Starting P2P node event loop...
+2025-09-21T18:41:11.981431Z  INFO train_db::network: Starting TrainDB node event loop
+2025-09-21T18:41:11.981454Z  INFO train_db: 🌐 Dashboard available at: http://localhost:3000
+2025-09-21T18:41:11.981471Z  INFO train_db: 📊 Monitor your Train-DB node in real-time!
+2025-09-21T18:41:11.981804Z  INFO train_db::network: Listening on /ip4/127.0.0.1/tcp/8082
+2025-09-21T18:41:11.981879Z  INFO train_db::network: Listening on /ip4/10.52.44.168/tcp/8082

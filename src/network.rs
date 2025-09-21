@@ -5,12 +5,14 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Transport,
 };
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use ::futures::prelude::*;
 
 use crate::storage::Storage;
 use crate::bluetooth::{BluetoothTransport, MultiTransport};
+use crate::dashboard::{Dashboard, PeerInfo};
 
 // Use GossipSub behaviour directly
 pub type TrainDBBehaviour = gossipsub::Behaviour;
@@ -27,6 +29,7 @@ pub struct TrainDBNode {
     storage: Box<dyn Storage>,
     command_sender: mpsc::UnboundedSender<NetworkCommand>,
     command_receiver: mpsc::UnboundedReceiver<NetworkCommand>,
+    dashboard: Option<Arc<Dashboard>>,
 }
 
 #[derive(Debug)]
@@ -51,7 +54,7 @@ impl TrainDBNode {
             .multiplex(yamux::Config::default());
         
         // Create multi-transport (TCP + Bluetooth when available)
-        let mut transport = tcp_transport.boxed();
+        let transport = tcp_transport.boxed();
         
         // Try to add Bluetooth transport if available
         #[cfg(feature = "bluetooth")]
@@ -60,13 +63,18 @@ impl TrainDBNode {
             info!("Bluetooth support compiled in - multi-transport ready");
         }
         
-        // Create network behavior
+        // Create network behavior with improved config
         let gossipsub_config = gossipsub::Config::default();
-        let behaviour = gossipsub::Behaviour::new(
+        
+        let mut behaviour = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(identity::Keypair::generate_ed25519()),
             gossipsub_config,
         )
         .expect("Valid config");
+        
+        // Subscribe to the main topic for Train-DB
+        let topic = gossipsub::IdentTopic::new("train-db");
+        behaviour.subscribe(&topic).expect("Valid topic");
         
         // Create swarm
         let swarm = Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor());
@@ -92,6 +100,7 @@ impl TrainDBNode {
             storage: Box::new(storage),
             command_sender,
             command_receiver,
+            dashboard: None,
         };
         
         // Start listening on TCP
@@ -114,6 +123,14 @@ impl TrainDBNode {
     pub fn peer_id(&self) -> PeerId {
         *self.swarm.local_peer_id()
     }
+
+    pub fn local_peer_id(&self) -> PeerId {
+        *self.swarm.local_peer_id()
+    }
+
+    pub fn set_dashboard(&mut self, dashboard: Arc<Dashboard>) {
+        self.dashboard = Some(dashboard);
+    }
     
     pub fn listen_addresses(&self) -> Vec<Multiaddr> {
         self.swarm.listeners().cloned().collect()
@@ -133,6 +150,9 @@ impl TrainDBNode {
     pub async fn run(mut self) -> Result<()> {
         info!("Starting TrainDB node event loop");
         
+        // Start a keep-alive task
+        let mut keep_alive_interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        
         loop {
             tokio::select! {
                 event = self.swarm.select_next_some() => {
@@ -145,6 +165,14 @@ impl TrainDBNode {
                         break;
                     }
                 }
+                _ = keep_alive_interval.tick() => {
+                    // Send a keep-alive message
+                    let topic = gossipsub::IdentTopic::new("train-db");
+                    let message = format!("Keep-alive from {}", self.swarm.local_peer_id());
+                    if let Err(e) = self.swarm.behaviour_mut().publish(topic, message.as_bytes()) {
+                        debug!("Failed to send keep-alive: {}", e);
+                    }
+                }
             }
         }
         
@@ -155,12 +183,36 @@ impl TrainDBNode {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 info!("Listening on {}", address);
+                if let Some(ref dashboard) = self.dashboard {
+                    dashboard.add_activity(format!("Listening on {}", address));
+                }
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                 info!("Connected to peer: {}", peer_id);
+                if let Some(ref dashboard) = self.dashboard {
+                    let transport = match endpoint {
+                        libp2p::core::ConnectedPoint::Dialer { .. } => "Outbound",
+                        libp2p::core::ConnectedPoint::Listener { .. } => "Inbound",
+                    };
+                    let peer_info = PeerInfo {
+                        peer_id: peer_id.to_string(),
+                        transport: transport.to_string(),
+                        last_seen: chrono::Utc::now().to_rfc3339(),
+                        is_connected: true,
+                    };
+                    dashboard.add_peer(peer_info);
+                    dashboard.add_activity(format!("✅ Connected to peer: {}", peer_id));
+                    
+                    // Log the connection
+                    dashboard.add_activity(format!("📤 Peer connection established: {}", peer_id));
+                }
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 info!("Disconnected from peer: {}", peer_id);
+                if let Some(ref dashboard) = self.dashboard {
+                    dashboard.remove_peer(&peer_id.to_string());
+                    dashboard.add_activity(format!("❌ Disconnected from peer: {}", peer_id));
+                }
             }
             SwarmEvent::Behaviour(event) => {
                 self.handle_behaviour_event(event).await;
