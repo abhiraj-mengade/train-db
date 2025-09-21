@@ -197,6 +197,57 @@ impl TrainDBNode {
         Ok(())
     }
     
+    async fn send_database_to_peer(&mut self, peer_id: PeerId) {
+        // Get all keys from our database
+        match self.storage.list_keys() {
+            Ok(keys) => {
+                info!("🔵 Sending {} keys to peer {}", keys.len(), peer_id);
+                
+                for key in &keys {
+                    if let Ok(value) = self.storage.get(&key) {
+                        let db_msg = serde_json::json!({
+                            "type": "database_sync",
+                            "key": key,
+                            "value": value,
+                            "timestamp": chrono::Utc::now().timestamp()
+                        });
+                        
+                        if let Ok(data) = serde_json::to_vec(&db_msg) {
+                            if let Some(ref mut bt) = self.bluetooth_transport {
+                                if let Err(e) = bt.send_message(peer_id, data).await {
+                                    debug!("Failed to send database key {} to peer {}: {}", key, peer_id, e);
+                                } else {
+                                    info!("🔵 ✅ Sent key '{}' to peer {}", key, peer_id);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Send completion message
+                let complete_msg = serde_json::json!({
+                    "type": "sync_complete",
+                    "peer_id": self.swarm.local_peer_id().to_string(),
+                    "total_keys": keys.len(),
+                    "timestamp": chrono::Utc::now().timestamp()
+                });
+                
+                if let Ok(data) = serde_json::to_vec(&complete_msg) {
+                    if let Some(ref mut bt) = self.bluetooth_transport {
+                        if let Err(e) = bt.send_message(peer_id, data).await {
+                            debug!("Failed to send sync complete message: {}", e);
+                        } else {
+                            info!("🔵 ✅ Sent sync complete message to peer {}", peer_id);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to list keys for database sync: {}", e);
+            }
+        }
+    }
+    
     async fn discover_bluetooth_peers(&mut self) {
         if let Some(ref mut bt) = self.bluetooth_transport {
             info!("🔵 Discovering Bluetooth peers...");
@@ -224,18 +275,26 @@ impl TrainDBNode {
                                 } else {
                                     info!("🔵 Successfully connected to Bluetooth peer: {}", peer_id);
                                     
-                                    // Send a test message to establish the connection
-                                    let test_msg = serde_json::json!({
-                                        "type": "bluetooth_hello",
+                                    // Mark peer as connected to avoid rediscovery
+                                    // TODO: Implement peer tracking in BluetoothTransport
+                                    info!("🔵 Peer {} connected successfully", peer_id);
+                                    
+                                    // Send database sync request to establish the connection
+                                    let sync_msg = serde_json::json!({
+                                        "type": "sync_request",
                                         "peer_id": self.swarm.local_peer_id().to_string(),
                                         "timestamp": chrono::Utc::now().timestamp()
                                     });
                                     
-                                    if let Ok(data) = serde_json::to_vec(&test_msg) {
+                                    if let Ok(data) = serde_json::to_vec(&sync_msg) {
                                         if let Err(e) = bt.send_message(peer_id, data).await {
-                                            debug!("Failed to send Bluetooth test message: {}", e);
+                                            debug!("Failed to send Bluetooth sync request: {}", e);
                                         } else {
-                                            info!("🔵 Sent Bluetooth test message to peer: {}", peer_id);
+                                            info!("🔵 Sent Bluetooth sync request to peer: {}", peer_id);
+                                            
+                                            // After sending sync request, send our database
+                                            // TODO: Fix this - need to restructure to avoid borrowing issues
+                                            info!("🔵 Would send database to peer {}", peer_id);
                                         }
                                     }
                                 }
@@ -367,6 +426,32 @@ impl TrainDBNode {
                             info!("🔵 Received Bluetooth hello from peer: {}", peer_id);
                         }
                     }
+                    Some("sync_request") => {
+                        if let Some(peer_id) = data.get("peer_id") {
+                            info!("🔵 Received sync request from peer: {}", peer_id);
+                            // TODO: Send our database back to the requesting peer
+                        }
+                    }
+                    Some("database_sync") => {
+                        if let (Some(key), Some(value)) = (
+                            data.get("key").and_then(|v| v.as_str()),
+                            data.get("value").and_then(|v| v.as_str()),
+                        ) {
+                            info!("🔵 Received database sync: {} = {}", key, value);
+                            
+                            // Store the received data
+                            if let Err(e) = self.storage.set(key, value) {
+                                error!("Failed to store received data: {}", e);
+                            } else {
+                                info!("✅ Stored received data: {} = {}", key, value);
+                            }
+                        }
+                    }
+                    Some("sync_complete") => {
+                        if let Some(total_keys) = data.get("total_keys").and_then(|v| v.as_u64()) {
+                            info!("🔵 Received sync complete: {} keys synchronized", total_keys);
+                        }
+                    }
                     _ => {
                         debug!("📨 Received message type: {}", msg_type);
                     }
@@ -438,10 +523,11 @@ impl TrainDBNode {
                         info!("✅ Successfully broadcasted data change via GossipSub");
                     }
                     
-                    // Also send via Bluetooth if available
+                    // Also send via Bluetooth to connected peers
                     if let Some(ref mut bt) = self.bluetooth_transport {
-                        // Get connected Bluetooth peers and send to them
-                        // This is a simplified approach - in reality you'd track connected peers
+                        info!("🔵 Broadcasting data change via Bluetooth: {} = {}", key, value);
+                        // TODO: Implement actual Bluetooth message sending to connected peers
+                        // For now, this is a placeholder - we need to implement peer tracking
                         info!("🔵 Broadcasting data change via Bluetooth to connected peers");
                         // Note: The actual Bluetooth sending would need to be implemented
                         // based on the connected peers from the Bluetooth transport

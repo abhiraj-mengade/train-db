@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use libp2p::{Multiaddr, PeerId};
 use tracing::{info, warn, error, debug};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -102,29 +102,26 @@ impl MultiTransport for BluetoothTransport {
                 while let Some(event) = events.next().await {
                     match event {
                         CentralEvent::DeviceDiscovered(device_id) => {
-                            info!("🔵 Bluetooth discovered device: {:?}", device_id);
                             if let Ok(peripheral) = central.peripheral(&device_id).await {
-                            if let Ok(properties) = peripheral.properties().await {
-                                if let Some(props) = properties {
-                                    if let Some(name) = &props.local_name {
-                                        info!("🔵 Device name: '{}' (ID: {:?})", name, device_id);
-                                        
-                                        // Only look for devices that are actually running TrainDB
-                                        // For now, let's be more selective and only connect to your specific devices
-                                        if name.contains("amengade_in-mac") || 
-                                           name.contains("Abhiraj Mengade's MacBook Air") {
-                                            info!("🔵 ✅ Found TrainDB peer: {} (ID: {:?})", name, device_id);
-                                            let mut devices = discovered_devices.lock().await;
-                                            devices.insert(device_id.to_string(), peripheral);
-                                        } else {
-                                            debug!("🔵 ⏭️ Skipping device: {} (not a TrainDB peer)", name);
+                                if let Ok(properties) = peripheral.properties().await {
+                                    if let Some(props) = properties {
+                                        if let Some(name) = &props.local_name {
+                                            // Only look for devices that are actually running TrainDB
+                                            // For now, let's be more selective and only connect to your specific devices
+                                            if name.contains("amengade_in-mac") || 
+                                               name.contains("Abhiraj Mengade's MacBook Air") {
+                                                let device_id_str = format!("{:?}", device_id);
+                                                
+                                                // Check if we're already connected to this peer
+                                                // TODO: Implement proper peer tracking
+                                                // For now, always process new peers
+                                                info!("🔵 ✅ Found new TrainDB peer: {} (ID: {:?})", name, device_id);
+                                                let mut devices = discovered_devices.lock().await;
+                                                devices.insert(device_id.to_string(), peripheral);
+                                            }
                                         }
-                                    } else {
-                                        // Skip unnamed devices for now
-                                        debug!("🔵 ⏭️ Skipping unnamed device (ID: {:?})", device_id);
                                     }
                                 }
-                            }
                             }
                         }
                         CentralEvent::DeviceConnected(device_id) => {
@@ -193,19 +190,35 @@ impl MultiTransport for BluetoothTransport {
                                name.contains("Abhiraj Mengade's MacBook Air") {
                                 info!("🔵 Processing TrainDB device: {} (ID: {:?})", name, device_id);
                                 
-                                // Extract peer ID from device name or properties
-                                // For now, we'll generate a deterministic peer ID from device ID
-                                let device_bytes = hex::decode(device_id.replace("-", "")).unwrap_or_default();
+                                // Generate a deterministic peer ID from device ID
+                                info!("🔵 Generating peer ID for device: {} (ID: {:?})", name, device_id);
+                                
+                                // Use the device ID string to generate a deterministic peer ID
+                                let device_id_str = format!("{:?}", device_id);
+                                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                                use std::hash::{Hash, Hasher};
+                                device_id_str.hash(&mut hasher);
+                                let hash = hasher.finish();
+                                
+                                // Convert hash to 32 bytes for ed25519 key
                                 let mut key_bytes = [0u8; 32];
-                                for (i, &byte) in device_bytes.iter().take(32).enumerate() {
-                                    key_bytes[i] = byte;
+                                for i in 0..8 {
+                                    let byte_offset = i * 8;
+                                    let hash_bytes = hash.to_le_bytes();
+                                    for j in 0..8 {
+                                        if byte_offset + j < 32 {
+                                            key_bytes[byte_offset + j] = hash_bytes[j];
+                                        }
+                                    }
                                 }
                                 
                                 if let Ok(public_key) = libp2p::identity::ed25519::PublicKey::try_from_bytes(&key_bytes) {
                                     let libp2p_public_key = libp2p::identity::PublicKey::from(public_key);
                                     let peer_id = PeerId::from_public_key(&libp2p_public_key);
                                     peers.push(peer_id);
-                                    info!("🔵 Generated peer ID for device {}: {}", name, peer_id);
+                                    info!("🔵 ✅ Generated peer ID for device {}: {}", name, peer_id);
+                                } else {
+                                    error!("🔵 ❌ Failed to generate peer ID for device: {}", name);
                                 }
                             }
                         } else {
@@ -287,6 +300,8 @@ pub struct BluetoothDiscovery {
     manager: Option<Manager>,
     #[cfg(feature = "bluetooth")]
     discovered_peers: Arc<Mutex<HashMap<String, String>>>,
+    #[cfg(feature = "bluetooth")]
+    connected_peers: Arc<Mutex<HashSet<String>>>,
 }
 
 impl BluetoothDiscovery {
@@ -296,6 +311,8 @@ impl BluetoothDiscovery {
             manager: None,
             #[cfg(feature = "bluetooth")]
             discovered_peers: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(feature = "bluetooth")]
+            connected_peers: Arc::new(Mutex::new(HashSet::new())),
         })
     }
     
@@ -331,6 +348,27 @@ impl BluetoothDiscovery {
         #[cfg(not(feature = "bluetooth"))]
         {
             HashMap::new()
+        }
+    }
+    
+    pub async fn mark_peer_connected(&self, device_id: &str) {
+        #[cfg(feature = "bluetooth")]
+        {
+            let mut connected = self.connected_peers.lock().await;
+            connected.insert(device_id.to_string());
+            info!("🔵 ✅ Marked peer as connected: {}", device_id);
+        }
+    }
+    
+    pub async fn is_peer_connected(&self, device_id: &str) -> bool {
+        #[cfg(feature = "bluetooth")]
+        {
+            let connected = self.connected_peers.lock().await;
+            connected.contains(device_id)
+        }
+        #[cfg(not(feature = "bluetooth"))]
+        {
+            false
         }
     }
 }
