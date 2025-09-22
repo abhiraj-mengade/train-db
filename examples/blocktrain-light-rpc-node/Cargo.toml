@@ -31,7 +31,7 @@ jsonrpc-derive = "18.0"
 reqwest = { version = "0.11", features = ["json", "native-tls"] }
 
 # Blockchain and crypto - Fixed compatibility
-ethers = { version = "2.0.14", features = ["full"] }
+ethers = { version = "2.0.14" }
 ethereum-types = "0.14.1"
 rlp = "0.5.2"
 sha3 = "0.10.8"
@@ -78,9 +78,9 @@ proptest = "1.4"
 name = "rpc-node"
 path = "src/main.rs"
 
-[[bench]]
-name = "sync_benchmark"
-harness = false
+# [[bench]]
+# name = "sync_benchmark"
+# harness = false
 
 [features]
 default = ["bluetooth"]
